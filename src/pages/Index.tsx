@@ -33,9 +33,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Plan & Go</h1>
+      <div className="max-w-md mx-auto">
+        <div className="flex justify-between items-center p-4 bg-white border-b">
+          <h1 className="text-xl font-bold text-gray-900">Plan & Go</h1>
           <button
             onClick={handleLogout}
             className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
@@ -45,7 +45,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-2 m-4 mb-6">
             <TabsTrigger value="plan" className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
               Plan
@@ -56,11 +56,11 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="plan">
+          <TabsContent value="plan" className="px-4 pb-4">
             <PlanScreen />
           </TabsContent>
 
-          <TabsContent value="memory">
+          <TabsContent value="memory" className="px-4 pb-4">
             <MemoryScreen />
           </TabsContent>
         </Tabs>
