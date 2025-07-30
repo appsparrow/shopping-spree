@@ -1,10 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import AuthScreen from '../components/AuthScreen';
-import PlanScreen from '../components/PlanScreen';
-import MemoryScreen from '../components/MemoryScreen';
+import PlanMode from '../components/PlanMode';
+import LiveMode from '../components/LiveMode';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { MapPin, Camera } from 'lucide-react';
+import { MapPin, CheckSquare } from 'lucide-react';
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -48,20 +48,20 @@ const Index = () => {
           <TabsList className="grid w-full grid-cols-2 m-4 mb-6">
             <TabsTrigger value="plan" className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
-              Plan
+              Plan Mode
             </TabsTrigger>
-            <TabsTrigger value="memory" className="flex items-center gap-2">
-              <Camera className="w-4 h-4" />
-              Memory
+            <TabsTrigger value="live" className="flex items-center gap-2">
+              <CheckSquare className="w-4 h-4" />
+              Live Mode
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="plan" className="px-4 pb-4">
-            <PlanScreen />
+            <PlanMode />
           </TabsContent>
 
-          <TabsContent value="memory" className="px-4 pb-4">
-            <MemoryScreen />
+          <TabsContent value="live" className="px-4 pb-4">
+            <LiveMode />
           </TabsContent>
         </Tabs>
       </div>
