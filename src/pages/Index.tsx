@@ -1,31 +1,76 @@
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import AuthScreen from '../components/AuthScreen';
-import PlanMode from '../components/PlanMode';
-import LiveMode from '../components/LiveMode';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { MapPin, CheckSquare } from 'lucide-react';
+import TripsList from '../components/TripsList';
+import TripView from '../components/TripView';
+import TripSetup from '../components/TripSetup';
+import CreateTrip from '../components/CreateTrip';
+
+type ViewMode = 'list' | 'view' | 'setup' | 'create';
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState('plan');
+  const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<ViewMode>('list');
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
 
   useEffect(() => {
-    const authStatus = localStorage.getItem('planAndGo_auth');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-    }
+    checkAuth();
   }, []);
+
+  const checkAuth = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+    } catch (error) {
+      console.error('Error checking auth:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = () => {
     setIsAuthenticated(true);
-    localStorage.setItem('planAndGo_auth', 'true');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
-    localStorage.removeItem('planAndGo_auth');
+    setCurrentView('list');
+    setSelectedTripId(null);
   };
+
+  const handleSelectTrip = (tripId: string) => {
+    setSelectedTripId(tripId);
+    setCurrentView('view');
+  };
+
+  const handleCreateTrip = () => {
+    setCurrentView('create');
+  };
+
+  const handleTripCreated = (tripId: string) => {
+    setSelectedTripId(tripId);
+    setCurrentView('setup');
+  };
+
+  const handleBackToList = () => {
+    setCurrentView('list');
+    setSelectedTripId(null);
+  };
+
+  const handleGoToSetup = () => {
+    setCurrentView('setup');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <AuthScreen onLogin={handleLogin} />;
@@ -33,9 +78,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-md mx-auto">
-        <div className="flex justify-between items-center p-4 bg-white border-b">
-          <h1 className="text-xl font-bold text-gray-900">Plan & Go</h1>
+      {/* Header */}
+      {currentView !== 'list' && (
+        <div className="bg-white border-b px-4 py-3 flex justify-end">
           <button
             onClick={handleLogout}
             className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
@@ -43,28 +88,46 @@ const Index = () => {
             Logout
           </button>
         </div>
+      )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 m-4 mb-6">
-            <TabsTrigger value="plan" className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Plan Mode
-            </TabsTrigger>
-            <TabsTrigger value="live" className="flex items-center gap-2">
-              <CheckSquare className="w-4 h-4" />
-              Live Mode
-            </TabsTrigger>
-          </TabsList>
+      {currentView === 'list' && (
+        <>
+          <div className="bg-white border-b px-4 py-3 flex justify-end">
+            <button
+              onClick={handleLogout}
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+          <TripsList 
+            onSelectTrip={handleSelectTrip}
+            onCreateTrip={handleCreateTrip}
+          />
+        </>
+      )}
 
-          <TabsContent value="plan" className="px-4 pb-4">
-            <PlanMode />
-          </TabsContent>
+      {currentView === 'create' && (
+        <CreateTrip 
+          onBack={handleBackToList}
+          onCreated={handleTripCreated}
+        />
+      )}
 
-          <TabsContent value="live" className="px-4 pb-4">
-            <LiveMode />
-          </TabsContent>
-        </Tabs>
-      </div>
+      {currentView === 'view' && selectedTripId && (
+        <TripView 
+          tripId={selectedTripId}
+          onBack={handleBackToList}
+          onSetup={handleGoToSetup}
+        />
+      )}
+
+      {currentView === 'setup' && selectedTripId && (
+        <TripSetup 
+          tripId={selectedTripId}
+          onBack={handleBackToList}
+        />
+      )}
     </div>
   );
 };

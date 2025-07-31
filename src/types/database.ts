@@ -83,6 +83,8 @@ export interface Database {
           skipped: boolean;
           day_number: number | null;
           sort_order: number;
+          photo_url: string | null;
+          photo_metadata: any;
           created_at: string;
           updated_at: string;
         };
@@ -99,6 +101,8 @@ export interface Database {
           skipped?: boolean;
           day_number?: number | null;
           sort_order?: number;
+          photo_url?: string | null;
+          photo_metadata?: any;
           created_at?: string;
           updated_at?: string;
         };
@@ -115,6 +119,8 @@ export interface Database {
           skipped?: boolean;
           day_number?: number | null;
           sort_order?: number;
+          photo_url?: string | null;
+          photo_metadata?: any;
           created_at?: string;
           updated_at?: string;
         };
