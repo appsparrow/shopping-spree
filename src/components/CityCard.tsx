@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { GripVertical, Edit, X, Calendar } from 'lucide-react';
-import { Database } from '@/integrations/supabase/types';
+import { Database } from '@/types/database';
 
 type TripCity = Database['public']['Tables']['trip_cities']['Row'];
 
