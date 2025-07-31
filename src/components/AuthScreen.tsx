@@ -2,69 +2,96 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { MapPin } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Plane } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthScreenProps {
   onLogin: () => void;
 }
 
 const AuthScreen = ({ onLogin }: AuthScreenProps) => {
-  const [pin, setPin] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === '1234') {
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+      }
+      
       onLogin();
-    } else {
-      setError('Invalid PIN. Try again.');
-      setPin('');
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <MapPin className="w-8 h-8 text-blue-600" />
-            </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Plane className="w-12 h-12 text-blue-600" />
           </div>
-          
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Plan & Go</h1>
-          <p className="text-gray-600 mb-8">Your personal travel companion</p>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enter 4-digit PIN
-              </label>
-              <Input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                maxLength={4}
-                className="text-center text-lg tracking-widest"
-                placeholder="••••"
-                autoFocus
-              />
-            </div>
+          <CardTitle className="text-2xl font-bold">Travel Planner</CardTitle>
+          <p className="text-gray-600">Plan and track your adventures</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
             
             {error && (
-              <p className="text-red-500 text-sm">{error}</p>
+              <p className="text-sm text-red-600 text-center">{error}</p>
             )}
             
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-              Enter
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Sign Up')}
             </Button>
           </form>
           
-          <p className="text-xs text-gray-500 mt-6">
-            Welcome back, Kiran! 🌟
-          </p>
-        </div>
-      </div>
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+            </button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

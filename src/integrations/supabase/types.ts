@@ -14,7 +14,146 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      trip_activities: {
+        Row: {
+          city_id: string | null
+          completed: boolean | null
+          created_at: string
+          day_number: number | null
+          id: string
+          notes: string | null
+          photo_metadata: Json | null
+          photo_url: string | null
+          place_name: string
+          skipped: boolean | null
+          sort_order: number | null
+          trip_id: string
+          updated_at: string
+        }
+        Insert: {
+          city_id?: string | null
+          completed?: boolean | null
+          created_at?: string
+          day_number?: number | null
+          id?: string
+          notes?: string | null
+          photo_metadata?: Json | null
+          photo_url?: string | null
+          place_name: string
+          skipped?: boolean | null
+          sort_order?: number | null
+          trip_id: string
+          updated_at?: string
+        }
+        Update: {
+          city_id?: string | null
+          completed?: boolean | null
+          created_at?: string
+          day_number?: number | null
+          id?: string
+          notes?: string | null
+          photo_metadata?: Json | null
+          photo_url?: string | null
+          place_name?: string
+          skipped?: boolean | null
+          sort_order?: number | null
+          trip_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_activities_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "trip_cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_activities_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trip_cities: {
+        Row: {
+          city_name: string
+          created_at: string
+          end_date: string | null
+          id: string
+          planned_days: number | null
+          sort_order: number | null
+          start_date: string | null
+          trip_id: string
+        }
+        Insert: {
+          city_name: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          planned_days?: number | null
+          sort_order?: number | null
+          start_date?: string | null
+          trip_id: string
+        }
+        Update: {
+          city_name?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          planned_days?: number | null
+          sort_order?: number | null
+          start_date?: string | null
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_cities_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          base_location: string | null
+          created_at: string
+          end_date: string | null
+          id: string
+          name: string
+          number_of_people: number | null
+          start_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_location?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name: string
+          number_of_people?: number | null
+          start_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_location?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name?: string
+          number_of_people?: number | null
+          start_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

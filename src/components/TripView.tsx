@@ -4,18 +4,8 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { ArrowLeft, Camera, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTrips } from '@/hooks/useTrips';
-import { useCities } from '@/hooks/useCities';
+import { useActivities } from '@/hooks/useActivities';
 import { supabase } from '@/integrations/supabase/client';
-
-interface Activity {
-  id: string;
-  place_name: string;
-  notes?: string;
-  photo_url?: string;
-  completed: boolean;
-  skipped: boolean;
-  day_number?: number;
-}
 
 interface TripViewProps {
   tripId: string;
@@ -25,46 +15,12 @@ interface TripViewProps {
 
 const TripView = ({ tripId, onBack, onSetup }: TripViewProps) => {
   const { currentTrip } = useTrips();
-  const { cities } = useCities(tripId);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const { activities, updateActivity } = useActivities(tripId);
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchActivities();
-  }, [tripId]);
-
-  const fetchActivities = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('trip_activities')
-        .select('*')
-        .eq('trip_id', tripId)
-        .order('sort_order', { ascending: true });
-      
-      if (error) throw error;
-      setActivities(data || []);
-    } catch (error) {
-      console.error('Error fetching activities:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleActivity = async (activityId: string, completed: boolean) => {
     try {
-      const { error } = await supabase
-        .from('trip_activities')
-        .update({ completed, updated_at: new Date().toISOString() })
-        .eq('id', activityId);
-      
-      if (error) throw error;
-      
-      setActivities(prev => 
-        prev.map(activity => 
-          activity.id === activityId ? { ...activity, completed } : activity
-        )
-      );
+      await updateActivity(activityId, { completed });
     } catch (error) {
       console.error('Error updating activity:', error);
     }
@@ -72,18 +28,7 @@ const TripView = ({ tripId, onBack, onSetup }: TripViewProps) => {
 
   const skipActivity = async (activityId: string) => {
     try {
-      const { error } = await supabase
-        .from('trip_activities')
-        .update({ skipped: true, updated_at: new Date().toISOString() })
-        .eq('id', activityId);
-      
-      if (error) throw error;
-      
-      setActivities(prev => 
-        prev.map(activity => 
-          activity.id === activityId ? { ...activity, skipped: true } : activity
-        )
-      );
+      await updateActivity(activityId, { skipped: true });
     } catch (error) {
       console.error('Error skipping activity:', error);
     }
@@ -91,9 +36,12 @@ const TripView = ({ tripId, onBack, onSetup }: TripViewProps) => {
 
   const uploadPhoto = async (activityId: string, file: File) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${tripId}/${activityId}/${fileName}`;
+      const filePath = `${user.id}/${tripId}/${activityId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('travel-photos')
@@ -105,25 +53,21 @@ const TripView = ({ tripId, onBack, onSetup }: TripViewProps) => {
         .from('travel-photos')
         .getPublicUrl(filePath);
 
-      const { error: updateError } = await supabase
-        .from('trip_activities')
-        .update({ photo_url: publicUrl })
-        .eq('id', activityId);
-
-      if (updateError) throw updateError;
-
-      setActivities(prev => 
-        prev.map(activity => 
-          activity.id === activityId ? { ...activity, photo_url: publicUrl } : activity
-        )
-      );
+      await updateActivity(activityId, { 
+        photo_url: publicUrl,
+        photo_metadata: { 
+          fileName,
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString()
+        }
+      });
     } catch (error) {
       console.error('Error uploading photo:', error);
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-64">Loading...</div>;
+  if (!currentTrip) {
+    return <div className="flex justify-center items-center h-64">Loading trip...</div>;
   }
 
   return (
@@ -132,8 +76,8 @@ const TripView = ({ tripId, onBack, onSetup }: TripViewProps) => {
         <Button variant="ghost" onClick={onBack} className="p-2">
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <h1 className="text-xl font-bold">{currentTrip?.name}</h1>
-        <Button variant="ghost" onClick={onSetup} className="p-2">
+        <h1 className="text-xl font-bold">{currentTrip.name}</h1>
+        <Button variant="ghost" onClick={onSetup} className="text-sm">
           Setup
         </Button>
       </div>
@@ -194,6 +138,7 @@ const TripView = ({ tripId, onBack, onSetup }: TripViewProps) => {
                     size="sm"
                     onClick={() => skipActivity(activity.id)}
                     className="p-2 text-red-500"
+                    disabled={activity.skipped}
                   >
                     <X className="w-4 h-4" />
                   </Button>
