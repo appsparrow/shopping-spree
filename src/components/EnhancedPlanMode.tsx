@@ -11,7 +11,29 @@ import { CityCard } from './CityCard';
 import { useTrips } from '@/hooks/useTrips';
 import { useCities } from '@/hooks/useCities';
 import AIPlanner from './AIPlanner';
+import GoDoCard from './GoDoCard';
 import { supabase } from '@/integrations/supabase/client';
+
+interface TripSetup {
+  tripName: string;
+  numberOfPeople: number;
+  fromDate: string;
+  toDate: string;
+  baseLocation: string;
+  cities: string[];
+}
+
+interface GoDoItem {
+  id: string;
+  cityId: string;
+  placeName: string;
+  preferredDate: string;
+  timeWindow: string;
+  notes: string;
+  tags: string[];
+  completed: boolean;
+  skipped: boolean;
+}
 
 const EnhancedPlanMode = () => {
   const [showAIPlanner, setShowAIPlanner] = useState(false);
@@ -19,17 +41,23 @@ const EnhancedPlanMode = () => {
   const [newCityDays, setNewCityDays] = useState(1);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [useSupabaseMode, setUseSupabaseMode] = useState(false);
   
-  const [tripSetup, setTripSetup] = useState({
+  // Local state for non-authenticated users (original functionality)
+  const [tripSetup, setTripSetup] = useState<TripSetup>({
     tripName: '',
     numberOfPeople: 1,
     fromDate: '',
     toDate: '',
-    baseLocation: ''
+    baseLocation: '',
+    cities: []
   });
+  const [goDoItems, setGoDoItems] = useState<GoDoItem[]>([]);
+  const [newCity, setNewCity] = useState('');
 
+  // Supabase hooks for authenticated users
   const { trips, currentTrip, createTrip, updateTrip, loading: tripsLoading } = useTrips();
-  const { cities, addCity, updateCity, deleteCity, reorderCities, loading: citiesLoading } = useCities(currentTrip?.id || null);
+  const { cities, addCity, updateCity, deleteCity, reorderCities, loading: citiesLoading } = useCities(useSupabaseMode ? currentTrip?.id || null : null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -47,17 +75,103 @@ const EnhancedPlanMode = () => {
   }, []);
 
   useEffect(() => {
-    if (currentTrip) {
+    if (currentTrip && useSupabaseMode) {
       setTripSetup({
         tripName: currentTrip.name,
         numberOfPeople: currentTrip.number_of_people,
         fromDate: currentTrip.start_date,
         toDate: currentTrip.end_date,
-        baseLocation: currentTrip.base_location || ''
+        baseLocation: currentTrip.base_location || '',
+        cities: cities.map(city => city.city_name)
       });
     }
-  }, [currentTrip]);
+  }, [currentTrip, cities, useSupabaseMode]);
 
+  // Load local storage data for non-authenticated mode
+  useEffect(() => {
+    if (!useSupabaseMode) {
+      const savedSetup = localStorage.getItem('planAndGo_setup');
+      const savedGoDoItems = localStorage.getItem('planAndGo_godo');
+      
+      if (savedSetup) {
+        setTripSetup(JSON.parse(savedSetup));
+      }
+      if (savedGoDoItems) {
+        setGoDoItems(JSON.parse(savedGoDoItems));
+      }
+    }
+  }, [useSupabaseMode]);
+
+  // Save to localStorage when in local mode
+  useEffect(() => {
+    if (!useSupabaseMode) {
+      localStorage.setItem('planAndGo_setup', JSON.stringify(tripSetup));
+    }
+  }, [tripSetup, useSupabaseMode]);
+
+  useEffect(() => {
+    if (!useSupabaseMode) {
+      localStorage.setItem('planAndGo_godo', JSON.stringify(goDoItems));
+    }
+  }, [goDoItems, useSupabaseMode]);
+
+  const handleAIPlanGenerated = (generatedTripSetup: TripSetup, generatedGoDoItems: GoDoItem[]) => {
+    setTripSetup(generatedTripSetup);
+    setGoDoItems(generatedGoDoItems);
+    setShowAIPlanner(false);
+  };
+
+  // Local mode functions (original functionality)
+  const addCityLocal = () => {
+    if (newCity.trim() && !tripSetup.cities.includes(newCity.trim())) {
+      setTripSetup(prev => ({
+        ...prev,
+        cities: [...prev.cities, newCity.trim()]
+      }));
+      setNewCity('');
+    }
+  };
+
+  const removeCityLocal = (cityToRemove: string) => {
+    setTripSetup(prev => ({
+      ...prev,
+      cities: prev.cities.filter(city => city !== cityToRemove)
+    }));
+    setGoDoItems(prev => prev.filter(item => item.cityId !== cityToRemove));
+  };
+
+  const addGoDoItem = (cityId: string, placeName: string) => {
+    if (placeName.trim()) {
+      const newItem: GoDoItem = {
+        id: Date.now().toString(),
+        cityId,
+        placeName: placeName.trim(),
+        preferredDate: '',
+        timeWindow: '',
+        notes: '',
+        tags: [],
+        completed: false,
+        skipped: false
+      };
+      setGoDoItems(prev => [...prev, newItem]);
+    }
+  };
+
+  const updateGoDoItem = (id: string, updates: Partial<GoDoItem>) => {
+    setGoDoItems(prev => prev.map(item => 
+      item.id === id ? { ...item, ...updates } : item
+    ));
+  };
+
+  const deleteGoDoItem = (id: string) => {
+    setGoDoItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const getGoDoItemsForCity = (cityId: string) => {
+    return goDoItems.filter(item => item.cityId === cityId);
+  };
+
+  // Supabase mode functions
   const handleCreateTrip = async () => {
     if (!tripSetup.tripName || !tripSetup.fromDate || !tripSetup.toDate) return;
     
@@ -121,7 +235,10 @@ const EnhancedPlanMode = () => {
   };
 
   const calculateTotalDays = () => {
-    return cities.reduce((total, city) => total + city.planned_days, 0);
+    if (useSupabaseMode) {
+      return cities.reduce((total, city) => total + city.planned_days, 0);
+    }
+    return 0;
   };
 
   const formatDateRange = () => {
@@ -131,21 +248,25 @@ const EnhancedPlanMode = () => {
     return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto p-6 text-center">
-        <h2 className="text-2xl font-bold mb-4">Authentication Required</h2>
-        <p className="text-gray-600 mb-4">Please sign in to start planning your trips.</p>
-      </div>
-    );
-  }
-
   if (tripsLoading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;
   }
 
   return (
     <div className="max-w-md mx-auto space-y-4 p-4">
+      {/* Mode Toggle */}
+      {isAuthenticated && (
+        <div className="flex justify-center mb-4">
+          <Button
+            onClick={() => setUseSupabaseMode(!useSupabaseMode)}
+            variant={useSupabaseMode ? "default" : "outline"}
+            className="text-sm"
+          >
+            {useSupabaseMode ? 'Using Supabase' : 'Using Local Storage'}
+          </Button>
+        </div>
+      )}
+
       {/* AI Planner Toggle */}
       <div className="flex justify-center">
         <Button
@@ -160,7 +281,7 @@ const EnhancedPlanMode = () => {
 
       {/* AI Planner */}
       {showAIPlanner && (
-        <AIPlanner onPlanGenerated={(setup, godoItems) => setShowAIPlanner(false)} />
+        <AIPlanner onPlanGenerated={handleAIPlanGenerated} />
       )}
 
       {/* Manual Planning */}
@@ -225,12 +346,13 @@ const EnhancedPlanMode = () => {
 
               {formatDateRange() && (
                 <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
-                  📅 {formatDateRange()} • {calculateTotalDays()} days planned
+                  📅 {formatDateRange()} {useSupabaseMode && `• ${calculateTotalDays()} days planned`}
                 </div>
               )}
 
+              {/* Action Buttons */}
               <div className="flex gap-2">
-                {!currentTrip ? (
+                {useSupabaseMode && !currentTrip ? (
                   <Button 
                     onClick={handleCreateTrip} 
                     disabled={isCreatingTrip || !tripSetup.tripName || !tripSetup.fromDate || !tripSetup.toDate}
@@ -238,7 +360,7 @@ const EnhancedPlanMode = () => {
                   >
                     {isCreatingTrip ? 'Creating...' : 'Create Trip'}
                   </Button>
-                ) : (
+                ) : useSupabaseMode ? (
                   <Button 
                     onClick={handleUpdateTrip} 
                     variant="outline"
@@ -246,13 +368,13 @@ const EnhancedPlanMode = () => {
                   >
                     Update Trip
                   </Button>
-                )}
+                ) : null}
               </div>
             </CardContent>
           </Card>
 
-          {/* Cities Planning */}
-          {currentTrip && (
+          {/* Cities Planning - Supabase Mode */}
+          {useSupabaseMode && currentTrip && (
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg">Cities & Days</CardTitle>
@@ -280,7 +402,6 @@ const EnhancedPlanMode = () => {
                   </Button>
                 </div>
 
-                {/* Cities List with Drag and Drop */}
                 <DndContext 
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -309,6 +430,99 @@ const EnhancedPlanMode = () => {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Cities Planning - Local Mode (Original functionality) */}
+          {!useSupabaseMode && (
+            <>
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Cities to Visit</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add city to visit"
+                      value={newCity}
+                      onChange={(e) => setNewCity(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && addCityLocal()}
+                    />
+                    <Button onClick={addCityLocal}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {tripSetup.cities.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {tripSetup.cities.map(city => (
+                        <span
+                          key={city}
+                          className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                        >
+                          {city}
+                          <button
+                            onClick={() => removeCityLocal(city)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Go-Do Lists by City */}
+              {tripSetup.cities.map(city => (
+                <Card key={city}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      📍 {city} Go-Do List
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {getGoDoItemsForCity(city).map(item => (
+                      <GoDoCard
+                        key={item.id}
+                        item={item}
+                        onUpdate={(updates) => updateGoDoItem(item.id, updates)}
+                        onDelete={() => deleteGoDoItem(item.id)}
+                      />
+                    ))}
+                    
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add place to visit"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            addGoDoItem(city, (e.target as HTMLInputElement).value);
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={() => {
+                          const input = document.querySelector(`input[placeholder="Add place to visit"]`) as HTMLInputElement;
+                          if (input?.value) {
+                            addGoDoItem(city, input.value);
+                            input.value = '';
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {tripSetup.cities.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  Add cities to start planning your Go-Do list
+                </div>
+              )}
+            </>
           )}
         </>
       )}
