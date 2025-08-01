@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { Plus, Trash2, Settings, Calendar } from 'lucide-react';
+import { Plus, Trash2, Calendar } from 'lucide-react';
 import { useTrips } from '@/hooks/useTrips';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,7 +13,7 @@ interface TripsListProps {
 }
 
 const TripsList = ({ onSelectTrip, onCreateTrip }: TripsListProps) => {
-  const { trips, loading } = useTrips();
+  const { trips, loading, setCurrentTrip, refetch } = useTrips();
 
   const formatMonthYear = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', { 
@@ -24,14 +24,21 @@ const TripsList = ({ onSelectTrip, onCreateTrip }: TripsListProps) => {
 
   const handleDeleteTrip = async (tripId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Delete this trip?')) {
+    if (confirm('Delete this trip? This action cannot be undone.')) {
       try {
-        await supabase.from('trips').delete().eq('id', tripId);
-        window.location.reload(); // Simple refresh for now
+        const { error } = await supabase.from('trips').delete().eq('id', tripId);
+        if (error) throw error;
+        refetch(); // Refresh the list
       } catch (error) {
         console.error('Error deleting trip:', error);
+        alert('Failed to delete trip. Please try again.');
       }
     }
+  };
+
+  const handleSelectTrip = (tripId: string) => {
+    setCurrentTrip(tripId);
+    onSelectTrip(tripId);
   };
 
   if (loading) {
@@ -57,7 +64,7 @@ const TripsList = ({ onSelectTrip, onCreateTrip }: TripsListProps) => {
           <Card 
             key={trip.id} 
             className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => onSelectTrip(trip.id)}
+            onClick={() => handleSelectTrip(trip.id)}
           >
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
@@ -71,10 +78,12 @@ const TripsList = ({ onSelectTrip, onCreateTrip }: TripsListProps) => {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {formatMonthYear(trip.start_date)}
-                  </Badge>
+                  {trip.start_date && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {formatMonthYear(trip.start_date)}
+                    </Badge>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -88,8 +97,8 @@ const TripsList = ({ onSelectTrip, onCreateTrip }: TripsListProps) => {
               
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>Swipe for settings</span>
                   <span>Tap to open</span>
+                  <span>Swipe for options</span>
                 </div>
               </div>
             </CardContent>

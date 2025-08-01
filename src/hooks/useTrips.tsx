@@ -4,8 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/types/database';
 
 type Trip = Database['public']['Tables']['trips']['Row'];
-type TripCity = Database['public']['Tables']['trip_cities']['Row'];
-type TripActivity = Database['public']['Tables']['trip_activities']['Row'];
 
 export const useTrips = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -14,6 +12,14 @@ export const useTrips = () => {
 
   const fetchTrips = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setTrips([]);
+        setCurrentTrip(null);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('trips')
         .select('*')
@@ -21,6 +27,8 @@ export const useTrips = () => {
       
       if (error) throw error;
       setTrips(data || []);
+      
+      // Set current trip if we don't have one selected
       if (data && data.length > 0 && !currentTrip) {
         setCurrentTrip(data[0]);
       }
@@ -33,12 +41,12 @@ export const useTrips = () => {
 
   const createTrip = async (tripData: Database['public']['Tables']['trips']['Insert']) => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('User not authenticated');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
       const { data, error } = await supabase
         .from('trips')
-        .insert({ ...tripData, user_id: user.user.id })
+        .insert({ ...tripData, user_id: user.id })
         .select()
         .single();
       
@@ -73,6 +81,13 @@ export const useTrips = () => {
     }
   };
 
+  const selectTrip = (tripId: string) => {
+    const trip = trips.find(t => t.id === tripId);
+    if (trip) {
+      setCurrentTrip(trip);
+    }
+  };
+
   useEffect(() => {
     fetchTrips();
   }, []);
@@ -80,7 +95,7 @@ export const useTrips = () => {
   return {
     trips,
     currentTrip,
-    setCurrentTrip,
+    setCurrentTrip: selectTrip,
     loading,
     createTrip,
     updateTrip,

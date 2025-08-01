@@ -17,12 +17,23 @@ const Index = () => {
 
   useEffect(() => {
     checkAuth();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+      if (event === 'SIGNED_OUT') {
+        setCurrentView('list');
+        setSelectedTripId(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkAuth = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
     } catch (error) {
       console.error('Error checking auth:', error);
     } finally {
@@ -78,7 +89,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Header with logout */}
       {currentView !== 'list' && (
         <div className="bg-white border-b px-4 py-3 flex justify-end">
           <button
