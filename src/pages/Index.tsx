@@ -38,17 +38,16 @@ const Index = () => {
   }
 
   if (!user) {
-    return <AuthScreen />;
+    return <AuthScreen onLogin={() => {}} />;
   }
 
   const renderView = () => {
     switch (view) {
       case 'create':
-        return <CreateTrip onBack={() => setView('list')} />;
+        return <CreateTrip onBack={() => setView('list')} onCreated={() => setView('view')} />;
       case 'view':
         return currentTrip ? (
           <TripView 
-            trip={currentTrip} 
             onBack={() => setView('list')}
             onSetup={() => setView('setup')}
           />
@@ -56,7 +55,6 @@ const Index = () => {
       case 'setup':
         return currentTrip ? (
           <TripSetup 
-            trip={currentTrip} 
             onBack={() => setView('view')} 
           />
         ) : null;
@@ -95,7 +93,7 @@ const Index = () => {
                 </Button>
               </div>
             </div>
-            <TripsList onTripSelect={() => setView('view')} />
+            <TripsList />
           </div>
         );
     }
