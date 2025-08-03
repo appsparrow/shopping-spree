@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Camera, Plus, Trash2, ShoppingBag, RefreshCw, Edit3 } from 'lucide-react';
+import { Camera, Plus, Trash2, ShoppingBag, RefreshCw, Edit3, Heart, HeartIcon } from 'lucide-react';
 
 interface ShoppingItem {
   id: string;
@@ -12,6 +12,7 @@ interface ShoppingItem {
   priceYen: number;
   priceUsd: number;
   timestamp: string;
+  liked: boolean;
 }
 
 const ShoppingTracker = () => {
@@ -33,7 +34,14 @@ const ShoppingTracker = () => {
     const savedRate = localStorage.getItem('exchangeRate');
     
     if (savedItems) {
-      setItems(JSON.parse(savedItems));
+      try {
+        const parsedItems = JSON.parse(savedItems);
+        console.log('Loaded items from localStorage:', parsedItems);
+        setItems(parsedItems);
+      } catch (error) {
+        console.error('Error parsing saved items:', error);
+        setItems([]);
+      }
     }
     
     if (savedRate) {
@@ -45,6 +53,7 @@ const ShoppingTracker = () => {
 
   // Save items and rate to localStorage
   useEffect(() => {
+    console.log('Saving items to localStorage:', items);
     localStorage.setItem('shoppingItems', JSON.stringify(items));
   }, [items]);
 
@@ -129,28 +138,57 @@ const ShoppingTracker = () => {
   };
 
   const addItem = () => {
-    if (newItemName.trim() && newItemPrice && capturedPhoto) {
-      const priceYen = parseFloat(newItemPrice);
-      const priceUsd = priceYen / exchangeRate;
-      
-      const newItem: ShoppingItem = {
-        id: Date.now().toString(),
-        name: newItemName.trim(),
-        photo: capturedPhoto,
-        priceYen,
-        priceUsd,
-        timestamp: new Date().toLocaleString()
-      };
-
-      setItems([newItem, ...items]);
-      setNewItemName('');
-      setNewItemPrice('');
-      setCapturedPhoto('');
+    console.log('Adding item:', { newItemName, newItemPrice, capturedPhoto });
+    
+    if (!newItemName.trim()) {
+      alert('Please enter a product name');
+      return;
     }
+    
+    if (!newItemPrice || parseFloat(newItemPrice) <= 0) {
+      alert('Please enter a valid price');
+      return;
+    }
+    
+    if (!capturedPhoto) {
+      alert('Please take a photo or upload an image');
+      return;
+    }
+
+    const priceYen = parseFloat(newItemPrice);
+    const priceUsd = priceYen / exchangeRate;
+    
+    const newItem: ShoppingItem = {
+      id: Date.now().toString(),
+      name: newItemName.trim(),
+      photo: capturedPhoto,
+      priceYen,
+      priceUsd,
+      timestamp: new Date().toLocaleString(),
+      liked: false
+    };
+
+    console.log('Created new item:', newItem);
+    setItems(prevItems => {
+      const updatedItems = [newItem, ...prevItems];
+      console.log('Updated items array:', updatedItems);
+      return updatedItems;
+    });
+    
+    // Reset form
+    setNewItemName('');
+    setNewItemPrice('');
+    setCapturedPhoto('');
   };
 
   const deleteItem = (id: string) => {
     setItems(items.filter(item => item.id !== id));
+  };
+
+  const toggleLike = (id: string) => {
+    setItems(items.map(item => 
+      item.id === id ? { ...item, liked: !item.liked } : item
+    ));
   };
 
   const getTotalYen = () => {
@@ -160,6 +198,13 @@ const ShoppingTracker = () => {
   const getTotalUsd = () => {
     return items.reduce((sum, item) => sum + item.priceUsd, 0);
   };
+
+  // Sort items: liked items first, then by timestamp
+  const sortedItems = [...items].sort((a, b) => {
+    if (a.liked && !b.liked) return -1;
+    if (!a.liked && b.liked) return 1;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
 
   return (
     <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
@@ -316,10 +361,10 @@ const ShoppingTracker = () => {
             <div className="text-center">
               <p className="text-sm text-gray-600 mb-1">Total Spent</p>
               <p className="text-2xl font-bold text-green-600">
-                ¥{getTotalYen().toFixed(0)}
-              </p>
-              <p className="text-lg font-semibold text-green-500">
                 ${getTotalUsd().toFixed(2)} USD
+              </p>
+              <p className="text-lg font-semibold text-red-500">
+                ¥{getTotalYen().toFixed(0)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 {items.length} item{items.length !== 1 ? 's' : ''} purchased
@@ -331,23 +376,35 @@ const ShoppingTracker = () => {
 
       {/* Items List */}
       <div className="space-y-3">
-        {items.map(item => (
-          <Card key={item.id} className="hover:shadow-md transition-shadow">
+        {sortedItems.map(item => (
+          <Card key={item.id} className={`hover:shadow-md transition-shadow ${item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''}`}>
             <CardContent className="p-4">
               <div className="flex gap-3">
-                <img 
-                  src={item.photo} 
-                  alt={item.name}
-                  className="w-20 h-20 object-cover rounded-lg border flex-shrink-0"
-                />
+                <div className="relative">
+                  <img 
+                    src={item.photo} 
+                    alt={item.name}
+                    className="w-20 h-20 object-cover rounded-lg border flex-shrink-0"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleLike(item.id)}
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-white shadow-md hover:bg-pink-50"
+                  >
+                    <Heart 
+                      className={`w-3 h-3 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
+                    />
+                  </Button>
+                </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900 truncate text-lg">{item.name}</h3>
                   <div className="mt-1">
-                    <p className="text-xl font-bold text-blue-600">
-                      ¥{item.priceYen.toFixed(0)}
-                    </p>
-                    <p className="text-lg font-semibold text-green-600">
+                    <p className="text-2xl font-bold text-green-600">
                       ${item.priceUsd.toFixed(2)}
+                    </p>
+                    <p className="text-sm font-semibold text-red-500">
+                      ¥{item.priceYen.toFixed(0)}
                     </p>
                   </div>
                   <p className="text-xs text-gray-400 mt-1">{item.timestamp}</p>

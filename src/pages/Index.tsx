@@ -48,6 +48,7 @@ const Index = () => {
       case 'view':
         return currentTrip ? (
           <TripView 
+            tripId={currentTrip.id}
             onBack={() => setView('list')}
             onSetup={() => setView('setup')}
           />
@@ -55,6 +56,7 @@ const Index = () => {
       case 'setup':
         return currentTrip ? (
           <TripSetup 
+            tripId={currentTrip.id}
             onBack={() => setView('view')} 
           />
         ) : null;
@@ -93,7 +95,10 @@ const Index = () => {
                 </Button>
               </div>
             </div>
-            <TripsList />
+            <TripsList 
+              onSelectTrip={(tripId) => setView('view')}
+              onCreateTrip={() => setView('create')}
+            />
           </div>
         );
     }
