@@ -1,144 +1,109 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import AuthScreen from '../components/AuthScreen';
-import TripsList from '../components/TripsList';
-import TripView from '../components/TripView';
-import TripSetup from '../components/TripSetup';
-import CreateTrip from '../components/CreateTrip';
-
-type ViewMode = 'list' | 'view' | 'setup' | 'create';
+import AuthScreen from '@/components/AuthScreen';
+import TripsList from '@/components/TripsList';
+import CreateTrip from '@/components/CreateTrip';
+import TripView from '@/components/TripView';
+import TripSetup from '@/components/TripSetup';
+import ShoppingTracker from '@/components/ShoppingTracker';
+import { useTrips } from '@/hooks/useTrips';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, ShoppingBag } from 'lucide-react';
 
 const Index = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<ViewMode>('list');
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [view, setView] = useState('list'); // list, create, view, setup, shopping
+  const { currentTrip } = useTrips();
 
   useEffect(() => {
-    checkAuth();
-    
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-      if (event === 'SIGNED_OUT') {
-        setCurrentView('list');
-        setSelectedTripId(null);
-      }
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const checkAuth = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-    } catch (error) {
-      console.error('Error checking auth:', error);
-    } finally {
-      setLoading(false);
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  const renderView = () => {
+    switch (view) {
+      case 'create':
+        return <CreateTrip onBack={() => setView('list')} />;
+      case 'view':
+        return currentTrip ? (
+          <TripView 
+            trip={currentTrip} 
+            onBack={() => setView('list')}
+            onSetup={() => setView('setup')}
+          />
+        ) : null;
+      case 'setup':
+        return currentTrip ? (
+          <TripSetup 
+            trip={currentTrip} 
+            onBack={() => setView('view')} 
+          />
+        ) : null;
+      case 'shopping':
+        return (
+          <div>
+            <div className="flex items-center gap-3 mb-4 p-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setView('list')}
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <h1 className="text-xl font-bold">Shopping Tracker</h1>
+            </div>
+            <ShoppingTracker />
+          </div>
+        );
+      default:
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-6 p-4">
+              <h1 className="text-2xl font-bold">My Trips</h1>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setView('shopping')}
+                  className="flex items-center gap-2"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Shopping
+                </Button>
+                <Button onClick={() => setView('create')}>
+                  Create Trip
+                </Button>
+              </div>
+            </div>
+            <TripsList onTripSelect={() => setView('view')} />
+          </div>
+        );
     }
   };
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    setCurrentView('list');
-    setSelectedTripId(null);
-  };
-
-  const handleSelectTrip = (tripId: string) => {
-    setSelectedTripId(tripId);
-    setCurrentView('view');
-  };
-
-  const handleCreateTrip = () => {
-    setCurrentView('create');
-  };
-
-  const handleTripCreated = (tripId: string) => {
-    setSelectedTripId(tripId);
-    setCurrentView('setup');
-  };
-
-  const handleBackToList = () => {
-    setCurrentView('list');
-    setSelectedTripId(null);
-  };
-
-  const handleGoToSetup = () => {
-    setCurrentView('setup');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <AuthScreen onLogin={handleLogin} />;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header with logout */}
-      {currentView !== 'list' && (
-        <div className="bg-white border-b px-4 py-3 flex justify-end">
-          <button
-            onClick={handleLogout}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            Logout
-          </button>
-        </div>
-      )}
-
-      {currentView === 'list' && (
-        <>
-          <div className="bg-white border-b px-4 py-3 flex justify-end">
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-          <TripsList 
-            onSelectTrip={handleSelectTrip}
-            onCreateTrip={handleCreateTrip}
-          />
-        </>
-      )}
-
-      {currentView === 'create' && (
-        <CreateTrip 
-          onBack={handleBackToList}
-          onCreated={handleTripCreated}
-        />
-      )}
-
-      {currentView === 'view' && selectedTripId && (
-        <TripView 
-          tripId={selectedTripId}
-          onBack={handleBackToList}
-          onSetup={handleGoToSetup}
-        />
-      )}
-
-      {currentView === 'setup' && selectedTripId && (
-        <TripSetup 
-          tripId={selectedTripId}
-          onBack={handleBackToList}
-        />
-      )}
+      {renderView()}
     </div>
   );
 };
