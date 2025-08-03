@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Camera, Plus, Trash2, ShoppingBag, RefreshCw, Edit3, Heart, HeartIcon } from 'lucide-react';
+import { Camera, Plus, Trash2, ShoppingBag, RefreshCw, Edit3, Heart } from 'lucide-react';
 
 interface ShoppingItem {
   id: string;
@@ -24,45 +24,67 @@ const ShoppingTracker = () => {
   const [newItemPrice, setNewItemPrice] = useState('');
   const [capturedPhoto, setCapturedPhoto] = useState<string>('');
   const [showCamera, setShowCamera] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load items and exchange rate from localStorage
   useEffect(() => {
-    const savedItems = localStorage.getItem('shoppingItems');
-    const savedRate = localStorage.getItem('exchangeRate');
-    
-    if (savedItems) {
-      try {
+    console.log('Loading data from localStorage...');
+    try {
+      const savedItems = localStorage.getItem('shoppingItems');
+      const savedRate = localStorage.getItem('exchangeRate');
+      
+      if (savedItems) {
         const parsedItems = JSON.parse(savedItems);
         console.log('Loaded items from localStorage:', parsedItems);
-        setItems(parsedItems);
-      } catch (error) {
-        console.error('Error parsing saved items:', error);
-        setItems([]);
+        if (Array.isArray(parsedItems)) {
+          setItems(parsedItems);
+        } else {
+          console.warn('Invalid items data in localStorage, resetting to empty array');
+          setItems([]);
+        }
       }
-    }
-    
-    if (savedRate) {
-      setExchangeRate(parseFloat(savedRate));
-    } else {
-      fetchExchangeRate();
+      
+      if (savedRate && !isNaN(parseFloat(savedRate))) {
+        const rate = parseFloat(savedRate);
+        console.log('Loaded exchange rate:', rate);
+        setExchangeRate(rate);
+      } else {
+        console.log('No valid exchange rate found, fetching from API...');
+        fetchExchangeRate();
+      }
+    } catch (error) {
+      console.error('Error loading data from localStorage:', error);
+      setItems([]);
+      setExchangeRate(150);
     }
   }, []);
 
-  // Save items and rate to localStorage
+  // Save items to localStorage
   useEffect(() => {
     console.log('Saving items to localStorage:', items);
-    localStorage.setItem('shoppingItems', JSON.stringify(items));
+    try {
+      localStorage.setItem('shoppingItems', JSON.stringify(items));
+    } catch (error) {
+      console.error('Error saving items to localStorage:', error);
+    }
   }, [items]);
 
+  // Save exchange rate to localStorage
   useEffect(() => {
-    localStorage.setItem('exchangeRate', exchangeRate.toString());
+    console.log('Saving exchange rate to localStorage:', exchangeRate);
+    try {
+      localStorage.setItem('exchangeRate', exchangeRate.toString());
+    } catch (error) {
+      console.error('Error saving exchange rate to localStorage:', error);
+    }
   }, [exchangeRate]);
 
   const fetchExchangeRate = async () => {
     try {
+      setIsLoading(true);
       const response = await fetch('https://api.exchangerate-api.com/v4/latest/JPY');
       const data = await response.json();
       const newRate = 1 / data.rates.USD;
@@ -70,11 +92,16 @@ const ShoppingTracker = () => {
       console.log('Exchange rate updated:', newRate);
     } catch (error) {
       console.error('Failed to fetch exchange rate:', error);
+      // Fallback to default rate if API fails
+      setExchangeRate(150);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const updateCustomRate = () => {
     const rate = parseFloat(customRate);
+    console.log('Updating custom rate:', rate);
     if (rate && rate > 0) {
       setExchangeRate(rate);
       setEditingRate(false);
@@ -86,10 +113,13 @@ const ShoppingTracker = () => {
           priceUsd: item.priceYen / rate
         }))
       );
+    } else {
+      console.warn('Invalid custom rate:', customRate);
     }
   };
 
   const startCamera = async () => {
+    console.log('Starting camera...');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' }
@@ -97,14 +127,17 @@ const ShoppingTracker = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setShowCamera(true);
+        console.log('Camera started successfully');
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
+      // Fallback to file input if camera fails
       fileInputRef.current?.click();
     }
   };
 
   const capturePhoto = () => {
+    console.log('Capturing photo...');
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
       if (context) {
@@ -113,12 +146,14 @@ const ShoppingTracker = () => {
         context.drawImage(videoRef.current, 0, 0);
         const photoData = canvasRef.current.toDataURL('image/jpeg', 0.8);
         setCapturedPhoto(photoData);
+        console.log('Photo captured successfully');
         stopCamera();
       }
     }
   };
 
   const stopCamera = () => {
+    console.log('Stopping camera...');
     if (videoRef.current?.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
       tracks.forEach(track => track.stop());
@@ -128,34 +163,39 @@ const ShoppingTracker = () => {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    console.log('File selected:', file?.name);
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setCapturedPhoto(e.target?.result as string);
+        const result = e.target?.result as string;
+        setCapturedPhoto(result);
+        console.log('File uploaded successfully');
       };
       reader.readAsDataURL(file);
     }
   };
 
   const addItem = () => {
-    console.log('Adding item:', { newItemName, newItemPrice, capturedPhoto });
+    console.log('Adding item - Name:', newItemName, 'Price:', newItemPrice, 'Photo:', !!capturedPhoto);
     
+    // Validation with user-friendly messages
     if (!newItemName.trim()) {
-      alert('Please enter a product name');
+      console.warn('No product name provided');
       return;
     }
     
-    if (!newItemPrice || parseFloat(newItemPrice) <= 0) {
-      alert('Please enter a valid price');
+    const priceValue = parseFloat(newItemPrice);
+    if (!newItemPrice || isNaN(priceValue) || priceValue <= 0) {
+      console.warn('Invalid price provided:', newItemPrice);
       return;
     }
     
     if (!capturedPhoto) {
-      alert('Please take a photo or upload an image');
+      console.warn('No photo provided');
       return;
     }
 
-    const priceYen = parseFloat(newItemPrice);
+    const priceYen = priceValue;
     const priceUsd = priceYen / exchangeRate;
     
     const newItem: ShoppingItem = {
@@ -168,10 +208,11 @@ const ShoppingTracker = () => {
       liked: false
     };
 
-    console.log('Created new item:', newItem);
+    console.log('Creating new item:', newItem);
+    
     setItems(prevItems => {
       const updatedItems = [newItem, ...prevItems];
-      console.log('Updated items array:', updatedItems);
+      console.log('Updated items array length:', updatedItems.length);
       return updatedItems;
     });
     
@@ -179,13 +220,16 @@ const ShoppingTracker = () => {
     setNewItemName('');
     setNewItemPrice('');
     setCapturedPhoto('');
+    console.log('Form reset completed');
   };
 
   const deleteItem = (id: string) => {
+    console.log('Deleting item:', id);
     setItems(items.filter(item => item.id !== id));
   };
 
   const toggleLike = (id: string) => {
+    console.log('Toggling like for item:', id);
     setItems(items.map(item => 
       item.id === id ? { ...item, liked: !item.liked } : item
     ));
@@ -206,8 +250,19 @@ const ShoppingTracker = () => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
 
+  console.log('Rendering ShoppingTracker - Items count:', items.length, 'Sorted items count:', sortedItems.length);
+
   return (
     <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-2 text-xs">
+            <p>Debug: Items: {items.length}, Rate: {exchangeRate}, Photo: {!!capturedPhoto ? 'Yes' : 'No'}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Exchange Rate Header */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
         <CardContent className="p-4">
@@ -246,10 +301,11 @@ const ShoppingTracker = () => {
                     variant="outline" 
                     size="sm" 
                     onClick={fetchExchangeRate}
+                    disabled={isLoading}
                     className="flex items-center gap-1"
                   >
-                    <RefreshCw className="w-3 h-3" />
-                    Refresh
+                    <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
+                    {isLoading ? 'Loading...' : 'Refresh'}
                   </Button>
                   <Button 
                     variant="outline" 
