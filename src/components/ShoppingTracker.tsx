@@ -1,9 +1,8 @@
-
 import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, ShoppingCart, Wifi, WifiOff, Check, X, Share, Download } from 'lucide-react';
+import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, ShoppingCart, Wifi, WifiOff, Check, X, Share, MapPin } from 'lucide-react';
 import { useShoppingItems, ShoppingItem } from '@/hooks/useShoppingItems';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import InstagramView from './InstagramView';
@@ -47,6 +46,7 @@ const ShoppingTracker = () => {
   const [editPrice, setEditPrice] = useState('');
   const [swipedItemId, setSwipedItemId] = useState<string | null>(null);
   const [showInstagramView, setShowInstagramView] = useState(false);
+  const [location, setLocation] = useState('');
 
   // Touch handling for swipe gestures
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -237,6 +237,10 @@ const ShoppingTracker = () => {
         purchasedCount={getPurchasedCount()}
         totalCount={items.length}
         currencySymbol={getToCurrencySymbol()}
+        exchangeRate={exchangeRate}
+        fromCurrency={fromCurrency}
+        toCurrency={toCurrency}
+        location={location}
         onClose={() => setShowInstagramView(false)}
       />
     );
@@ -258,15 +262,23 @@ const ShoppingTracker = () => {
         </CardContent>
       </Card>
 
-      {/* Instagram View Button */}
-      <div className="flex justify-end">
+      {/* Location and Instagram View */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <Input
+            placeholder="Shopping location (e.g., Tokyo, Japan)"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="flex items-center gap-2"
+          />
+        </div>
         <Button 
           variant="outline" 
           onClick={() => setShowInstagramView(true)}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 whitespace-nowrap"
         >
           <Share className="w-4 h-4" />
-          Instagram View
+          Post View
         </Button>
       </div>
 
@@ -504,49 +516,53 @@ const ShoppingTracker = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-3">
-                    <div className="relative">
+                  <div className="flex gap-4">
+                    <div className="relative flex-shrink-0">
                       <img 
                         src={item.photo} 
                         alt={item.name}
-                        className="w-24 h-24 object-cover rounded-lg border flex-shrink-0"
+                        className="w-32 h-32 object-cover rounded-lg border"
                       />
-                      <div className="absolute -top-2 -right-2 flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => toggleLike(item)}
-                          className="h-6 w-6 rounded-full bg-white shadow-md hover:bg-pink-50"
-                        >
-                          <Heart 
-                            className={`w-3 h-3 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
-                          />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => togglePurchased(item)}
-                          className="h-6 w-6 rounded-full bg-white shadow-md hover:bg-green-50"
-                        >
-                          <ShoppingCart 
-                            className={`w-3 h-3 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-400'}`} 
-                          />
-                        </Button>
-                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className={`font-semibold text-gray-900 truncate text-lg ${item.purchased ? 'line-through' : ''}`}>
-                        {item.name}
-                      </h3>
-                      <div className="mt-1">
-                        <p className="text-2xl font-bold text-green-600">
-                          {getToCurrencySymbol()}{item.price_converted.toFixed(2)}
-                        </p>
-                        <p className="text-sm font-semibold text-red-500">
-                          {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
-                        </p>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <h3 className={`font-semibold text-gray-900 truncate text-lg mb-2 ${item.purchased ? 'line-through' : ''}`}>
+                          {item.name}
+                        </h3>
+                        <div>
+                          <p className="text-2xl font-bold text-green-600">
+                            {getToCurrencySymbol()}{item.price_converted.toFixed(2)}
+                          </p>
+                          <p className="text-sm font-semibold text-red-500">
+                            {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">{item.timestamp}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-gray-400">{item.timestamp}</p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleLike(item)}
+                            className="h-8 w-8 rounded-full hover:bg-pink-50"
+                          >
+                            <Heart 
+                              className={`w-4 h-4 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-600'}`} 
+                            />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => togglePurchased(item)}
+                            className="h-8 w-8 rounded-full hover:bg-green-50"
+                          >
+                            <ShoppingCart 
+                              className={`w-4 h-4 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-600'}`} 
+                            />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
