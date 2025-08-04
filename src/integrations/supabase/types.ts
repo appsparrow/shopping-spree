@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      shopping_items: {
+        Row: {
+          converted_currency: string
+          created_at: string
+          exchange_rate: number
+          id: string
+          liked: boolean
+          name: string
+          original_currency: string
+          photo: string
+          price_converted: number
+          price_original: number
+          purchased: boolean
+          timestamp: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          converted_currency?: string
+          created_at?: string
+          exchange_rate: number
+          id?: string
+          liked?: boolean
+          name: string
+          original_currency?: string
+          photo: string
+          price_converted: number
+          price_original: number
+          purchased?: boolean
+          timestamp?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          converted_currency?: string
+          created_at?: string
+          exchange_rate?: number
+          id?: string
+          liked?: boolean
+          name?: string
+          original_currency?: string
+          photo?: string
+          price_converted?: number
+          price_original?: number
+          purchased?: boolean
+          timestamp?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trip_activities: {
         Row: {
           city_id: string | null

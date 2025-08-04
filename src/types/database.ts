@@ -2,6 +2,56 @@
 export interface Database {
   public: {
     Tables: {
+      shopping_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          photo: string;
+          price_original: number;
+          price_converted: number;
+          original_currency: string;
+          converted_currency: string;
+          exchange_rate: number;
+          liked: boolean;
+          purchased: boolean;
+          timestamp: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          name: string;
+          photo: string;
+          price_original: number;
+          price_converted: number;
+          original_currency?: string;
+          converted_currency?: string;
+          exchange_rate: number;
+          liked?: boolean;
+          purchased?: boolean;
+          timestamp?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          photo?: string;
+          price_original?: number;
+          price_converted?: number;
+          original_currency?: string;
+          converted_currency?: string;
+          exchange_rate?: number;
+          liked?: boolean;
+          purchased?: boolean;
+          timestamp?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       trips: {
         Row: {
           id: string;
