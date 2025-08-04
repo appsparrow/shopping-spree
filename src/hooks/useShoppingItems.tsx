@@ -26,14 +26,19 @@ export const useShoppingItems = () => {
   const queryClient = useQueryClient();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
+  const [offlineItems, setOfflineItems] = useState<ShoppingItem[]>([]);
 
   // Monitor online status
   useEffect(() => {
     const handleOnline = () => {
+      console.log('Coming back online, starting sync...');
       setIsOnline(true);
       syncOfflineData();
     };
-    const handleOffline = () => setIsOnline(false);
+    const handleOffline = () => {
+      console.log('Going offline...');
+      setIsOnline(false);
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -43,6 +48,14 @@ export const useShoppingItems = () => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Load offline items on mount
+  useEffect(() => {
+    if (!isOnline) {
+      const items = getOfflineItems();
+      setOfflineItems(items);
+    }
+  }, [isOnline]);
 
   // Get current user
   const getCurrentUser = async () => {
@@ -63,6 +76,7 @@ export const useShoppingItems = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      console.log('Fetched online items:', data?.length);
       return data as ShoppingItem[];
     },
     enabled: isOnline,
@@ -72,8 +86,11 @@ export const useShoppingItems = () => {
   const getOfflineItems = (): ShoppingItem[] => {
     try {
       const stored = localStorage.getItem(OFFLINE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
+      const items = stored ? JSON.parse(stored) : [];
+      console.log('Retrieved offline items:', items.length);
+      return items;
+    } catch (error) {
+      console.error('Error loading offline items:', error);
       return [];
     }
   };
@@ -82,6 +99,8 @@ export const useShoppingItems = () => {
   const saveOfflineItems = (items: ShoppingItem[]) => {
     try {
       localStorage.setItem(OFFLINE_KEY, JSON.stringify(items));
+      setOfflineItems(items);
+      console.log('Saved offline items:', items.length);
     } catch (error) {
       console.error('Failed to save offline items:', error);
     }
@@ -89,25 +108,58 @@ export const useShoppingItems = () => {
 
   // Sync offline data when coming online
   const syncOfflineData = async () => {
-    const offlineItems = getOfflineItems();
-    if (offlineItems.length === 0) return;
+    const storedOfflineItems = getOfflineItems();
+    if (storedOfflineItems.length === 0) {
+      console.log('No offline items to sync');
+      return;
+    }
 
     setSyncStatus('syncing');
+    console.log('Starting sync of', storedOfflineItems.length, 'offline items');
+    
     try {
       const user = await getCurrentUser();
-      if (!user) return;
+      if (!user) {
+        console.log('No user found, cannot sync');
+        setSyncStatus('error');
+        return;
+      }
 
-      for (const item of offlineItems) {
-        const { user_id, ...itemData } = item;
-        await supabase
-          .from('shopping_items')
-          .upsert({ ...itemData, user_id: user.id });
+      for (const item of storedOfflineItems) {
+        try {
+          const { user_id, ...itemData } = item;
+          console.log('Syncing item:', item.name);
+          
+          // Check if item already exists
+          const { data: existingItem } = await supabase
+            .from('shopping_items')
+            .select('id')
+            .eq('id', item.id)
+            .single();
+
+          if (existingItem) {
+            // Update existing item
+            await supabase
+              .from('shopping_items')
+              .update({ ...itemData, user_id: user.id, updated_at: new Date().toISOString() })
+              .eq('id', item.id);
+          } else {
+            // Insert new item
+            await supabase
+              .from('shopping_items')
+              .insert({ ...itemData, user_id: user.id });
+          }
+        } catch (itemError) {
+          console.error('Error syncing item:', item.name, itemError);
+        }
       }
 
       // Clear offline storage after successful sync
       localStorage.removeItem(OFFLINE_KEY);
+      setOfflineItems([]);
       queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
       setSyncStatus('idle');
+      console.log('Sync completed successfully');
     } catch (error) {
       console.error('Sync failed:', error);
       setSyncStatus('error');
@@ -118,17 +170,18 @@ export const useShoppingItems = () => {
   const createItemMutation = useMutation({
     mutationFn: async (newItem: Omit<ShoppingItem, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
       const user = await getCurrentUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!user && isOnline) throw new Error('Not authenticated');
 
       const itemWithUser = {
         ...newItem,
-        user_id: user.id,
+        user_id: user?.id || '',
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      if (isOnline) {
+      if (isOnline && user) {
+        console.log('Creating item online:', itemWithUser.name);
         const { data, error } = await supabase
           .from('shopping_items')
           .insert(itemWithUser)
@@ -138,21 +191,25 @@ export const useShoppingItems = () => {
         if (error) throw error;
         return data;
       } else {
-        // Store offline
-        const offlineItems = getOfflineItems();
-        offlineItems.unshift(itemWithUser);
-        saveOfflineItems(offlineItems);
+        console.log('Creating item offline:', itemWithUser.name);
+        const currentOfflineItems = getOfflineItems();
+        const updatedItems = [itemWithUser, ...currentOfflineItems];
+        saveOfflineItems(updatedItems);
         return itemWithUser;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+    onSuccess: (newItem) => {
+      if (isOnline) {
+        queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      }
     },
   });
 
   // Update item mutation
   const updateItemMutation = useMutation({
     mutationFn: async (updatedItem: ShoppingItem) => {
+      console.log('Updating item:', updatedItem.name, 'Online:', isOnline);
+      
       if (isOnline) {
         const { user_id, ...updateData } = updatedItem;
         const { data, error } = await supabase
@@ -166,25 +223,31 @@ export const useShoppingItems = () => {
         return data;
       } else {
         // Update offline
-        const offlineItems = getOfflineItems();
-        const index = offlineItems.findIndex(item => item.id === updatedItem.id);
+        const currentOfflineItems = getOfflineItems();
+        const index = currentOfflineItems.findIndex(item => item.id === updatedItem.id);
+        const itemWithTimestamp = { ...updatedItem, updated_at: new Date().toISOString() };
+        
         if (index !== -1) {
-          offlineItems[index] = { ...updatedItem, updated_at: new Date().toISOString() };
+          currentOfflineItems[index] = itemWithTimestamp;
         } else {
-          offlineItems.unshift({ ...updatedItem, updated_at: new Date().toISOString() });
+          currentOfflineItems.unshift(itemWithTimestamp);
         }
-        saveOfflineItems(offlineItems);
-        return updatedItem;
+        saveOfflineItems(currentOfflineItems);
+        return itemWithTimestamp;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      if (isOnline) {
+        queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      }
     },
   });
 
   // Delete item mutation
   const deleteItemMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log('Deleting item:', id, 'Online:', isOnline);
+      
       if (isOnline) {
         const { error } = await supabase
           .from('shopping_items')
@@ -194,19 +257,21 @@ export const useShoppingItems = () => {
         if (error) throw error;
       } else {
         // Remove from offline storage
-        const offlineItems = getOfflineItems();
-        const filtered = offlineItems.filter(item => item.id !== id);
+        const currentOfflineItems = getOfflineItems();
+        const filtered = currentOfflineItems.filter(item => item.id !== id);
         saveOfflineItems(filtered);
       }
       return id;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      if (isOnline) {
+        queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      }
     },
   });
 
   // Combine online and offline items
-  const allItems = isOnline ? items : getOfflineItems();
+  const allItems = isOnline ? items : offlineItems;
 
   return {
     items: allItems,
