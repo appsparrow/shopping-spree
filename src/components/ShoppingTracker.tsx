@@ -3,9 +3,10 @@ import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, ShoppingCart, Wifi, WifiOff, Check, X } from 'lucide-react';
+import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, ShoppingCart, Wifi, WifiOff, Check, X, Share, Download } from 'lucide-react';
 import { useShoppingItems, ShoppingItem } from '@/hooks/useShoppingItems';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import InstagramView from './InstagramView';
 
 const CURRENCIES = [
   { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
@@ -44,10 +45,39 @@ const ShoppingTracker = () => {
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
+  const [swipedItemId, setSwipedItemId] = useState<string | null>(null);
+  const [showInstagramView, setShowInstagramView] = useState(false);
+
+  // Touch handling for swipe gestures
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
+
+  const onTouchEnd = (itemId: string) => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      setSwipedItemId(itemId);
+    }
+    if (isRightSwipe) {
+      setSwipedItemId(null);
+    }
+  };
 
   const updateCustomRate = () => {
     const rate = parseFloat(customRate);
@@ -138,6 +168,7 @@ const ShoppingTracker = () => {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price_original.toString());
+    setSwipedItemId(null); // Hide swipe actions
   };
 
   const saveEdit = () => {
@@ -172,6 +203,12 @@ const ShoppingTracker = () => {
 
   const togglePurchased = (item: ShoppingItem) => {
     updateItem({ ...item, purchased: !item.purchased });
+    setSwipedItemId(null); // Hide swipe actions after purchase toggle
+  };
+
+  const handleDelete = (itemId: string) => {
+    deleteItem(itemId);
+    setSwipedItemId(null); // Hide swipe actions after delete
   };
 
   const getFromCurrencySymbol = () => CURRENCIES.find(c => c.code === fromCurrency)?.symbol || fromCurrency;
@@ -191,6 +228,20 @@ const ShoppingTracker = () => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
 
+  if (showInstagramView) {
+    return (
+      <InstagramView 
+        items={sortedItems}
+        totalSpent={getPurchasedTotal()}
+        totalItems={getTotalConverted()}
+        purchasedCount={getPurchasedCount()}
+        totalCount={items.length}
+        currencySymbol={getToCurrencySymbol()}
+        onClose={() => setShowInstagramView(false)}
+      />
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
       {/* Connection Status */}
@@ -206,6 +257,18 @@ const ShoppingTracker = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Instagram View Button */}
+      <div className="flex justify-end">
+        <Button 
+          variant="outline" 
+          onClick={() => setShowInstagramView(true)}
+          className="flex items-center gap-2"
+        >
+          <Share className="w-4 h-4" />
+          Instagram View
+        </Button>
+      </div>
 
       {/* Currency Exchange Rate */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
@@ -378,7 +441,7 @@ const ShoppingTracker = () => {
         <div className="grid grid-cols-2 gap-3">
           <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
             <CardContent className="p-3 text-center">
-              <p className="text-xs text-gray-600 mb-1">Total Items</p>
+              <p className="text-xs text-gray-600 mb-1">Total Value</p>
               <p className="text-lg font-bold text-blue-600">
                 {getToCurrencySymbol()}{getTotalConverted().toFixed(2)}
               </p>
@@ -391,7 +454,7 @@ const ShoppingTracker = () => {
 
           <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
             <CardContent className="p-3 text-center">
-              <p className="text-xs text-gray-600 mb-1">Purchased</p>
+              <p className="text-xs text-gray-600 mb-1">Actually Spent</p>
               <p className="text-lg font-bold text-green-600">
                 {getToCurrencySymbol()}{getPurchasedTotal().toFixed(2)}
               </p>
@@ -406,105 +469,113 @@ const ShoppingTracker = () => {
       {/* Items List */}
       <div className="space-y-3">
         {sortedItems.map(item => (
-          <Card 
-            key={item.id} 
-            className={`hover:shadow-md transition-shadow ${
-              item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
-            } ${item.purchased ? 'opacity-75 bg-gray-50' : ''}`}
-          >
-            <CardContent className="p-4">
-              {editingItem?.id === item.id ? (
-                <div className="space-y-3">
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Product name"
-                  />
-                  <Input
-                    type="number"
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                    placeholder={`Price in ${fromCurrency}`}
-                  />
-                  <div className="flex gap-2">
-                    <Button onClick={saveEdit} size="sm" className="flex-1" disabled={isUpdating}>
-                      <Check className="w-3 h-3 mr-1" />
-                      {isUpdating ? 'Saving...' : 'Save'}
-                    </Button>
-                    <Button onClick={cancelEdit} variant="outline" size="sm" className="flex-1">
-                      <X className="w-3 h-3 mr-1" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex gap-3">
-                  <div className="relative">
-                    <img 
-                      src={item.photo} 
-                      alt={item.name}
-                      className="w-20 h-20 object-cover rounded-lg border flex-shrink-0"
+          <div key={item.id} className="relative">
+            <Card 
+              className={`hover:shadow-md transition-shadow ${
+                item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
+              } ${item.purchased ? 'opacity-75 bg-gray-50' : ''} overflow-hidden`}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={() => onTouchEnd(item.id)}
+            >
+              <CardContent className="p-4">
+                {editingItem?.id === item.id ? (
+                  <div className="space-y-3">
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Product name"
                     />
-                    <div className="absolute -top-2 -right-2 flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleLike(item)}
-                        className="h-6 w-6 rounded-full bg-white shadow-md hover:bg-pink-50"
-                      >
-                        <Heart 
-                          className={`w-3 h-3 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
-                        />
+                    <Input
+                      type="number"
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value)}
+                      placeholder={`Price in ${fromCurrency}`}
+                    />
+                    <div className="flex gap-2">
+                      <Button onClick={saveEdit} size="sm" className="flex-1" disabled={isUpdating}>
+                        <Check className="w-3 h-3 mr-1" />
+                        {isUpdating ? 'Saving...' : 'Save'}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => togglePurchased(item)}
-                        className="h-6 w-6 rounded-full bg-white shadow-md hover:bg-green-50"
-                      >
-                        <ShoppingCart 
-                          className={`w-3 h-3 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-400'}`} 
-                        />
+                      <Button onClick={cancelEdit} variant="outline" size="sm" className="flex-1">
+                        <X className="w-3 h-3 mr-1" />
+                        Cancel
                       </Button>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`font-semibold text-gray-900 truncate text-lg ${item.purchased ? 'line-through' : ''}`}>
-                      {item.name}
-                    </h3>
-                    <div className="mt-1">
-                      <p className="text-2xl font-bold text-green-600">
-                        {getToCurrencySymbol()}{item.price_converted.toFixed(2)}
-                      </p>
-                      <p className="text-sm font-semibold text-red-500">
-                        {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
-                      </p>
+                ) : (
+                  <div className="flex gap-3">
+                    <div className="relative">
+                      <img 
+                        src={item.photo} 
+                        alt={item.name}
+                        className="w-24 h-24 object-cover rounded-lg border flex-shrink-0"
+                      />
+                      <div className="absolute -top-2 -right-2 flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleLike(item)}
+                          className="h-6 w-6 rounded-full bg-white shadow-md hover:bg-pink-50"
+                        >
+                          <Heart 
+                            className={`w-3 h-3 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
+                          />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => togglePurchased(item)}
+                          className="h-6 w-6 rounded-full bg-white shadow-md hover:bg-green-50"
+                        >
+                          <ShoppingCart 
+                            className={`w-3 h-3 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-400'}`} 
+                          />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">{item.timestamp}</p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className={`font-semibold text-gray-900 truncate text-lg ${item.purchased ? 'line-through' : ''}`}>
+                        {item.name}
+                      </h3>
+                      <div className="mt-1">
+                        <p className="text-2xl font-bold text-green-600">
+                          {getToCurrencySymbol()}{item.price_converted.toFixed(2)}
+                        </p>
+                        <p className="text-sm font-semibold text-red-500">
+                          {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">{item.timestamp}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => startEditing(item)}
-                      className="flex-shrink-0 hover:bg-blue-50 hover:border-blue-200"
-                    >
-                      <Edit3 className="w-4 h-4 text-blue-500" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => deleteItem(item.id)}
-                      className="flex-shrink-0 hover:bg-red-50 hover:border-red-200"
-                      disabled={isDeleting}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Swipe Actions */}
+            {swipedItemId === item.id && (
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2 z-10">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => startEditing(item)}
+                  className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleDelete(item.id)}
+                  className="bg-red-500 text-white hover:bg-red-600 shadow-lg"
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
