@@ -106,6 +106,27 @@ export const useShoppingItems = () => {
     }
   };
 
+  // Update exchange rates for all items
+  const updateExchangeRates = (newRate: number, fromCurrency: string, toCurrency: string) => {
+    const currentItems = isOnline ? items : offlineItems;
+    const updatedItems = currentItems.map(item => ({
+      ...item,
+      price_converted: item.price_original / newRate,
+      exchange_rate: newRate,
+      original_currency: fromCurrency,
+      converted_currency: toCurrency,
+      updated_at: new Date().toISOString()
+    }));
+
+    if (isOnline) {
+      // Update all items in database
+      updatedItems.forEach(item => updateItemMutation.mutate(item));
+    } else {
+      // Update offline items
+      saveOfflineItems(updatedItems);
+    }
+  };
+
   // Sync offline data when coming online
   const syncOfflineData = async () => {
     const storedOfflineItems = getOfflineItems();
@@ -130,24 +151,32 @@ export const useShoppingItems = () => {
           const { user_id, ...itemData } = item;
           console.log('Syncing item:', item.name);
           
-          // Check if item already exists
           const { data: existingItem } = await supabase
             .from('shopping_items')
-            .select('id')
+            .select('id, updated_at')
             .eq('id', item.id)
             .single();
 
           if (existingItem) {
-            // Update existing item
-            await supabase
-              .from('shopping_items')
-              .update({ ...itemData, user_id: user.id, updated_at: new Date().toISOString() })
-              .eq('id', item.id);
+            // Only update if offline item is newer
+            const offlineUpdateTime = new Date(item.updated_at).getTime();
+            const onlineUpdateTime = new Date(existingItem.updated_at).getTime();
+            
+            if (offlineUpdateTime > onlineUpdateTime) {
+              await supabase
+                .from('shopping_items')
+                .update({ ...itemData, user_id: user.id, updated_at: new Date().toISOString() })
+                .eq('id', item.id);
+              console.log('Updated existing item:', item.name);
+            } else {
+              console.log('Skipping update for', item.name, '- online version is newer');
+            }
           } else {
             // Insert new item
             await supabase
               .from('shopping_items')
               .insert({ ...itemData, user_id: user.id });
+            console.log('Inserted new item:', item.name);
           }
         } catch (itemError) {
           console.error('Error syncing item:', item.name, itemError);
@@ -157,7 +186,7 @@ export const useShoppingItems = () => {
       // Clear offline storage after successful sync
       localStorage.removeItem(OFFLINE_KEY);
       setOfflineItems([]);
-      queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      await queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
       setSyncStatus('idle');
       console.log('Sync completed successfully');
     } catch (error) {
@@ -201,6 +230,9 @@ export const useShoppingItems = () => {
     onSuccess: (newItem) => {
       if (isOnline) {
         queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      } else {
+        // Update local state immediately for offline
+        setOfflineItems(prev => [newItem, ...prev]);
       }
     },
   });
@@ -236,9 +268,14 @@ export const useShoppingItems = () => {
         return itemWithTimestamp;
       }
     },
-    onSuccess: () => {
+    onSuccess: (updatedItem) => {
       if (isOnline) {
         queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      } else {
+        // Update local state immediately for offline
+        setOfflineItems(prev => 
+          prev.map(item => item.id === updatedItem.id ? updatedItem : item)
+        );
       }
     },
   });
@@ -263,9 +300,12 @@ export const useShoppingItems = () => {
       }
       return id;
     },
-    onSuccess: () => {
+    onSuccess: (deletedId) => {
       if (isOnline) {
         queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      } else {
+        // Update local state immediately for offline
+        setOfflineItems(prev => prev.filter(item => item.id !== deletedId));
       }
     },
   });
@@ -282,6 +322,7 @@ export const useShoppingItems = () => {
     createItem: createItemMutation.mutate,
     updateItem: updateItemMutation.mutate,
     deleteItem: deleteItemMutation.mutate,
+    updateExchangeRates,
     isCreating: createItemMutation.isPending,
     isUpdating: updateItemMutation.isPending,
     isDeleting: deleteItemMutation.isPending,

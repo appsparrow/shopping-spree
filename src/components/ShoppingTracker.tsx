@@ -2,10 +2,11 @@ import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, ShoppingCart, Wifi, WifiOff, Check, X, Share, MapPin } from 'lucide-react';
+import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, ShoppingCart, Wifi, WifiOff, Check, X, Share, MapPin, Download } from 'lucide-react';
 import { useShoppingItems, ShoppingItem } from '@/hooks/useShoppingItems';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import InstagramView from './InstagramView';
+import PWAInstallPrompt from './PWAInstallPrompt';
 
 const CURRENCIES = [
   { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
@@ -27,6 +28,7 @@ const ShoppingTracker = () => {
     createItem,
     updateItem,
     deleteItem,
+    updateExchangeRates,
     isCreating,
     isUpdating,
     isDeleting,
@@ -83,6 +85,8 @@ const ShoppingTracker = () => {
     const rate = parseFloat(customRate);
     if (rate && rate > 0) {
       setExchangeRate(rate);
+      // Update all existing items with new exchange rate
+      updateExchangeRates(rate, fromCurrency, toCurrency);
       setEditingRate(false);
       setCustomRate('');
     }
@@ -198,12 +202,14 @@ const ShoppingTracker = () => {
   };
 
   const toggleLike = (item: ShoppingItem) => {
+    console.log('Toggling like for:', item.name, 'Current state:', item.liked);
     updateItem({ ...item, liked: !item.liked });
   };
 
   const togglePurchased = (item: ShoppingItem) => {
+    console.log('Toggling purchased for:', item.name, 'Current state:', item.purchased);
     updateItem({ ...item, purchased: !item.purchased });
-    setSwipedItemId(null); // Hide swipe actions after purchase toggle
+    setSwipedItemId(null);
   };
 
   const handleDelete = (itemId: string) => {
@@ -248,6 +254,9 @@ const ShoppingTracker = () => {
 
   return (
     <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
+
       {/* Connection Status */}
       <Card className={`${isOnline ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
         <CardContent className="p-3">
@@ -325,7 +334,7 @@ const ShoppingTracker = () => {
                 />
                 <div className="flex gap-2">
                   <Button onClick={updateCustomRate} size="sm" className="flex-1">
-                    Update
+                    Update All Items
                   </Button>
                   <Button 
                     onClick={() => {setEditingRate(false); setCustomRate('');}} 
@@ -544,21 +553,29 @@ const ShoppingTracker = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => toggleLike(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLike(item);
+                            }}
                             className="h-8 w-8 rounded-full hover:bg-pink-50"
+                            disabled={isUpdating}
                           >
                             <Heart 
-                              className={`w-4 h-4 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-600'}`} 
+                              className={`w-4 h-4 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-800'}`} 
                             />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => togglePurchased(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePurchased(item);
+                            }}
                             className="h-8 w-8 rounded-full hover:bg-green-50"
+                            disabled={isUpdating}
                           >
                             <ShoppingCart 
-                              className={`w-4 h-4 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-600'}`} 
+                              className={`w-4 h-4 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-800'}`} 
                             />
                           </Button>
                         </div>

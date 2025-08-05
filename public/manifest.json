@@ -1,18 +1,30 @@
 
 {
-  "name": "PlanAndGo - Travel Planner",
-  "short_name": "PlanAndGo",
-  "description": "Your ultimate travel planning companion",
+  "name": "Shopping Tracker - Track Your Purchases",
+  "short_name": "Shopping Tracker",
+  "description": "Track your shopping purchases with currency conversion and offline support",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#8b5cf6",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["shopping", "finance", "productivity"],
+  "screenshots": [
+    {
+      "src": "/placeholder.svg",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
   "icons": [
     {
       "src": "/favicon.ico",
       "sizes": "48x48",
-      "type": "image/x-icon"
+      "type": "image/x-icon",
+      "purpose": "any"
     },
     {
       "src": "/placeholder.svg",
@@ -27,6 +39,19 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["travel", "productivity", "lifestyle"],
-  "lang": "en"
+  "shortcuts": [
+    {
+      "name": "Add New Item",
+      "short_name": "Add Item",
+      "description": "Quickly add a new shopping item",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
 }
