@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -119,10 +118,11 @@ export const useShoppingItems = () => {
     }));
 
     if (isOnline) {
+      // Update cache immediately for better UX
+      queryClient.setQueryData(['shopping-items'], updatedItems);
       // Update all items in database
       updatedItems.forEach(item => updateItemMutation.mutate(item));
     } else {
-      // Update offline items
       saveOfflineItems(updatedItems);
     }
   };
@@ -195,7 +195,7 @@ export const useShoppingItems = () => {
     }
   };
 
-  // Create item mutation
+  // Create item mutation with immediate UI update
   const createItemMutation = useMutation({
     mutationFn: async (newItem: Omit<ShoppingItem, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
       const user = await getCurrentUser();
@@ -227,17 +227,42 @@ export const useShoppingItems = () => {
         return itemWithUser;
       }
     },
-    onSuccess: (newItem) => {
+    onMutate: async (newItem) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['shopping-items'] });
+
+      // Snapshot the previous value
+      const previousItems = queryClient.getQueryData(['shopping-items']) as ShoppingItem[] || [];
+
+      // Create the optimistic item
+      const optimisticItem = {
+        ...newItem,
+        id: crypto.randomUUID(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user_id: '',
+      };
+
+      // Optimistically update the cache
+      queryClient.setQueryData(['shopping-items'], [optimisticItem, ...previousItems]);
+
+      return { previousItems };
+    },
+    onError: (err, newItem, context) => {
+      // Roll back the optimistic update
+      if (context?.previousItems) {
+        queryClient.setQueryData(['shopping-items'], context.previousItems);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       if (isOnline) {
         queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
-      } else {
-        // Update local state immediately for offline
-        setOfflineItems(prev => [newItem, ...prev]);
       }
     },
   });
 
-  // Update item mutation
+  // Update item mutation with optimistic updates
   const updateItemMutation = useMutation({
     mutationFn: async (updatedItem: ShoppingItem) => {
       console.log('Updating item:', updatedItem.name, 'Online:', isOnline);
@@ -268,14 +293,26 @@ export const useShoppingItems = () => {
         return itemWithTimestamp;
       }
     },
-    onSuccess: (updatedItem) => {
+    onMutate: async (updatedItem) => {
+      await queryClient.cancelQueries({ queryKey: ['shopping-items'] });
+      const previousItems = queryClient.getQueryData(['shopping-items']) as ShoppingItem[] || [];
+      
+      // Optimistically update the cache
+      const updatedItems = previousItems.map(item => 
+        item.id === updatedItem.id ? updatedItem : item
+      );
+      queryClient.setQueryData(['shopping-items'], updatedItems);
+      
+      return { previousItems };
+    },
+    onError: (err, updatedItem, context) => {
+      if (context?.previousItems) {
+        queryClient.setQueryData(['shopping-items'], context.previousItems);
+      }
+    },
+    onSettled: () => {
       if (isOnline) {
         queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
-      } else {
-        // Update local state immediately for offline
-        setOfflineItems(prev => 
-          prev.map(item => item.id === updatedItem.id ? updatedItem : item)
-        );
       }
     },
   });

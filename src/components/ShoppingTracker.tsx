@@ -248,6 +248,9 @@ const ShoppingTracker = () => {
         toCurrency={toCurrency}
         location={location}
         onClose={() => setShowInstagramView(false)}
+        onToggleLike={toggleLike}
+        onTogglePurchased={togglePurchased}
+        isUpdating={isUpdating}
       />
     );
   }
