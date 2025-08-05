@@ -42,7 +42,7 @@
   "shortcuts": [
     {
       "name": "Add New Item",
-      "short_name": "Add Item",
+      "short_name": "Add Item", 
       "description": "Quickly add a new shopping item",
       "url": "/",
       "icons": [
@@ -53,5 +53,11 @@
       ]
     }
   ],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  }
 }
