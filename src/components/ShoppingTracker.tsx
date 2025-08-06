@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -85,7 +86,6 @@ const ShoppingTracker = () => {
     const rate = parseFloat(customRate);
     if (rate && rate > 0) {
       setExchangeRate(rate);
-      // Update all existing items with new exchange rate
       updateExchangeRates(rate, fromCurrency, toCurrency);
       setEditingRate(false);
       setCustomRate('');
@@ -260,45 +260,43 @@ const ShoppingTracker = () => {
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
 
-      {/* Connection Status */}
-      <Card className={`${isOnline ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-        <CardContent className="p-3">
-          <div className="flex items-center gap-2 text-sm">
-            {isOnline ? <Wifi className="w-4 h-4 text-green-600" /> : <WifiOff className="w-4 h-4 text-orange-600" />}
-            <span className={isOnline ? 'text-green-700' : 'text-orange-700'}>
-              {isOnline ? 'Online' : 'Offline - Changes will sync when connected'}
-            </span>
-            {syncStatus === 'syncing' && <span className="text-blue-600">Syncing...</span>}
-            {syncStatus === 'error' && <span className="text-red-600">Sync failed</span>}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Header Section */}
+      <div className="space-y-3">
+        {/* Connection Status */}
+        <Card className={`${isOnline ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-sm">
+              {isOnline ? <Wifi className="w-4 h-4 text-green-600" /> : <WifiOff className="w-4 h-4 text-orange-600" />}
+              <span className={isOnline ? 'text-green-700' : 'text-orange-700'}>
+                {isOnline ? 'Online' : 'Offline - Changes will sync when connected'}
+              </span>
+              {syncStatus === 'syncing' && <span className="text-blue-600">Syncing...</span>}
+              {syncStatus === 'error' && <span className="text-red-600">Sync failed</span>}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Location and Instagram View */}
-      <div className="flex gap-2">
-        <div className="flex-1">
+        {/* Location and Post View */}
+        <div className="flex gap-2">
           <Input
             placeholder="Shopping location (e.g., Tokyo, Japan)"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="flex items-center gap-2"
+            className="flex-1"
           />
+          <Button 
+            variant="outline" 
+            onClick={() => setShowInstagramView(true)}
+            className="flex items-center gap-2 whitespace-nowrap"
+          >
+            <Share className="w-4 h-4" />
+            Post View
+          </Button>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowInstagramView(true)}
-          className="flex items-center gap-2 whitespace-nowrap"
-        >
-          <Share className="w-4 h-4" />
-          Post View
-        </Button>
-      </div>
 
-      {/* Currency Exchange Rate */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardContent className="p-4">
-          <div className="text-center">
-            <p className="text-sm text-gray-600 mb-3">Exchange Rate</p>
+        {/* Simplified Currency Rate */}
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <CardContent className="p-4">
             {editingRate ? (
               <div className="space-y-3">
                 <div className="flex gap-2">
@@ -350,10 +348,13 @@ const ShoppingTracker = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-xl font-bold text-blue-600">
-                  {getFromCurrencySymbol()}{exchangeRate.toFixed(2)} = {getToCurrencySymbol()}1.00
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Exchange Rate</p>
+                  <p className="text-lg font-bold text-blue-600">
+                    {getFromCurrencySymbol()}{exchangeRate.toFixed(2)} = {getToCurrencySymbol()}1.00
+                  </p>
+                </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -361,13 +362,43 @@ const ShoppingTracker = () => {
                   className="flex items-center gap-1"
                 >
                   <Edit3 className="w-3 h-3" />
-                  Edit Rate & Currencies
+                  Edit
                 </Button>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Summary Stats */}
+      {items.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm font-medium text-gray-700">Total Value</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {getToCurrencySymbol()}{getTotalConverted().toFixed(0)}
+              </p>
+              <p className="text-sm text-gray-500">
+                {getFromCurrencySymbol()}{getTotalOriginal().toFixed(0)}
+              </p>
+              <p className="text-xs text-gray-500">{items.length} items</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm font-medium text-gray-700">Actually Spent</p>
+              <p className="text-2xl font-bold text-green-600">
+                {getToCurrencySymbol()}{getPurchasedTotal().toFixed(0)}
+              </p>
+              <p className="text-sm text-gray-500">
+                {getPurchasedCount()} of {items.length} bought
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Add New Item */}
       <Card>
@@ -460,44 +491,16 @@ const ShoppingTracker = () => {
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* Summary Cards */}
-      {items.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-            <CardContent className="p-3 text-center">
-              <p className="text-xs text-gray-600 mb-1">Total Value</p>
-              <p className="text-lg font-bold text-blue-600">
-                {getToCurrencySymbol()}{getTotalConverted().toFixed(2)}
-              </p>
-              <p className="text-sm text-red-500">
-                {getFromCurrencySymbol()}{getTotalOriginal().toFixed(0)}
-              </p>
-              <p className="text-xs text-gray-500">{items.length} items</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
-            <CardContent className="p-3 text-center">
-              <p className="text-xs text-gray-600 mb-1">Actually Spent</p>
-              <p className="text-lg font-bold text-green-600">
-                {getToCurrencySymbol()}{getPurchasedTotal().toFixed(2)}
-              </p>
-              <p className="text-sm text-gray-500">
-                {getPurchasedCount()} of {items.length} bought
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Items List - Updated with larger icons and proper purchased styling */}
+      {/* Items List with improved swipe and vertical buttons */}
       <div className="space-y-3">
         {sortedItems.map(item => (
           <div key={item.id} className="relative">
             <Card 
-              className={`hover:shadow-md transition-shadow overflow-hidden ${
+              className={`hover:shadow-md transition-all duration-200 overflow-hidden ${
                 item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
-              } ${item.purchased ? 'bg-green-50 border-green-300' : ''}`}
+              } ${item.purchased ? 'bg-green-50 border-green-300' : ''} ${
+                swipedItemId === item.id ? 'transform -translate-x-16' : ''
+              }`}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
               onTouchEnd={() => onTouchEnd(item.id)}
@@ -533,12 +536,13 @@ const ShoppingTracker = () => {
                       <img 
                         src={item.photo} 
                         alt={item.name}
-                        className="w-32 h-32 object-cover rounded-lg border"
+                        className="w-24 h-24 object-cover rounded-lg border"
                       />
                     </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-between">
-                      <div>
-                        <h3 className={`font-semibold text-gray-900 truncate text-lg mb-2`}>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="pr-20">
+                        <h3 className="font-semibold text-gray-900 text-base mb-1 line-clamp-2">
                           {item.name}
                           {item.purchased && (
                             <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -546,75 +550,78 @@ const ShoppingTracker = () => {
                             </span>
                           )}
                         </h3>
-                        <div>
-                          <p className={`text-2xl font-bold ${
+                        
+                        <div className="mb-2">
+                          <p className={`text-xl font-bold ${
                             item.purchased ? 'text-green-600' : 'text-blue-600'
                           }`}>
-                            {getToCurrencySymbol()}{item.price_converted.toFixed(2)}
+                            {getToCurrencySymbol()}{item.price_converted.toFixed(0)}
                           </p>
-                          <p className="text-sm font-semibold text-red-500">
+                          <p className="text-sm text-gray-500">
                             {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
                           </p>
                         </div>
+                        
+                        <p className="text-xs text-gray-400">{item.timestamp.split(',')[0]}</p>
                       </div>
-                      <div className="flex items-center justify-between mt-2">
-                        <p className="text-xs text-gray-400">{item.timestamp}</p>
-                        <div className="flex gap-3">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleLike(item);
-                            }}
-                            className="h-12 w-12 rounded-full hover:bg-pink-50"
-                            disabled={isUpdating}
-                          >
-                            <Heart 
-                              className={`w-8 h-8 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-800'}`} 
-                            />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePurchased(item);
-                            }}
-                            className="h-12 w-12 rounded-full hover:bg-green-50"
-                            disabled={isUpdating}
-                          >
-                            <ShoppingCart 
-                              className={`w-8 h-8 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-800'}`} 
-                            />
-                          </Button>
-                        </div>
-                      </div>
+                    </div>
+
+                    {/* Vertical Action Buttons on the Right */}
+                    <div className="absolute right-3 top-3 flex flex-col gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleLike(item);
+                        }}
+                        className="h-12 w-12 rounded-full hover:bg-pink-50 p-0"
+                        disabled={isUpdating}
+                      >
+                        <Heart 
+                          className={`w-8 h-8 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-600'}`} 
+                        />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePurchased(item);
+                        }}
+                        className="h-12 w-12 rounded-full hover:bg-green-50 p-0"
+                        disabled={isUpdating}
+                      >
+                        <ShoppingCart 
+                          className={`w-8 h-8 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-600'}`} 
+                        />
+                      </Button>
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Swipe Actions */}
+            {/* Swipe Actions - Edit and Delete */}
             {swipedItemId === item.id && (
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-2 z-10">
+              <div className="absolute right-0 top-0 h-full flex items-center gap-1 pr-2">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => startEditing(item)}
-                  className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg"
+                  className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-12 w-12"
                 >
-                  <Edit3 className="w-4 h-4" />
+                  <Edit3 className="w-5 h-5" />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => handleDelete(item.id)}
-                  className="bg-red-500 text-white hover:bg-red-600 shadow-lg"
+                  className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-12 w-12"
                   disabled={isDeleting}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </Button>
               </div>
             )}
@@ -624,7 +631,7 @@ const ShoppingTracker = () => {
 
       {/* Empty State */}
       {items.length === 0 && !isLoading && (
-        <Card className="border-dashed border-2">
+        <Card className="border-dashed border-2 border-gray-200">
           <CardContent className="p-8 text-center text-gray-500">
             <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium mb-2">No items yet</h3>
