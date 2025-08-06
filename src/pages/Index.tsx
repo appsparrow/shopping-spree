@@ -11,18 +11,16 @@ import { useTrips } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 
-const Index: React.FC = () => {
+const Index = () => {
   console.log('Index component rendering...');
   
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [view, setView] = useState<string>('list');
-  const [currentTrip, setCurrentTrip] = useState<any>(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('list');
+  const [currentTrip, setCurrentTrip] = useState(null);
   
-  // Use useTrips hook after all useState hooks
   const tripsData = useTrips();
   
-  // Update currentTrip when tripsData changes
   useEffect(() => {
     if (tripsData.currentTrip) {
       setCurrentTrip(tripsData.currentTrip);
