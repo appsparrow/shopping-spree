@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import AuthScreen from '@/components/AuthScreen';
@@ -10,27 +11,50 @@ import { useTrips } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 
-const Index = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('list'); // list, create, view, setup, shopping
-  const { currentTrip } = useTrips();
+const Index: React.FC = () => {
+  console.log('Index component rendering...');
+  
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [view, setView] = useState<string>('list'); // list, create, view, setup, shopping
+  
+  let currentTrip = null;
+  try {
+    const tripsData = useTrips();
+    currentTrip = tripsData.currentTrip;
+    console.log('Current trip:', currentTrip);
+  } catch (error) {
+    console.error('Error using useTrips hook:', error);
+  }
 
   useEffect(() => {
+    console.log('Index useEffect running...');
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+        console.log('Session user:', session?.user);
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     getSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed:', session?.user);
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('Cleaning up auth subscription...');
+      subscription.unsubscribe();
+    };
   }, []);
+
+  console.log('Current state - loading:', loading, 'user:', user, 'view:', view);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -41,6 +65,7 @@ const Index = () => {
   }
 
   const renderView = () => {
+    console.log('Rendering view:', view);
     switch (view) {
       case 'create':
         return <CreateTrip onBack={() => setView('list')} onCreated={() => setView('view')} />;
