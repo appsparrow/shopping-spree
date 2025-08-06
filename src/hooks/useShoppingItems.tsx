@@ -20,6 +20,7 @@ export interface ShoppingItem {
 }
 
 const OFFLINE_KEY = 'offline_shopping_items';
+const LAST_SYNC_KEY = 'last_sync_timestamp';
 
 export const useShoppingItems = () => {
   const queryClient = useQueryClient();
@@ -56,13 +57,24 @@ export const useShoppingItems = () => {
     }
   }, [isOnline]);
 
+  // Auto-sync when coming online
+  useEffect(() => {
+    if (isOnline && syncStatus === 'idle') {
+      const offlineData = getOfflineItems();
+      if (offlineData.length > 0) {
+        console.log('Found offline data on startup, syncing...');
+        syncOfflineData();
+      }
+    }
+  }, [isOnline]);
+
   // Get current user
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
   };
 
-  // Fetch items from Supabase
+  // Fetch items from Supabase with timestamp tracking
   const { data: items = [], isLoading, error } = useQuery({
     queryKey: ['shopping-items'],
     queryFn: async () => {
@@ -75,10 +87,18 @@ export const useShoppingItems = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      console.log('Fetched online items:', data?.length);
+      
+      // Update last sync timestamp when we successfully fetch online data
+      if (data) {
+        localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+        console.log('Fetched online items:', data?.length);
+      }
+      
       return data as ShoppingItem[];
     },
     enabled: isOnline,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Get offline items from localStorage
@@ -127,16 +147,17 @@ export const useShoppingItems = () => {
     }
   };
 
-  // Sync offline data when coming online
+  // Enhanced sync function to handle complex scenarios
   const syncOfflineData = async () => {
     const storedOfflineItems = getOfflineItems();
     if (storedOfflineItems.length === 0) {
       console.log('No offline items to sync');
+      setSyncStatus('idle');
       return;
     }
 
     setSyncStatus('syncing');
-    console.log('Starting sync of', storedOfflineItems.length, 'offline items');
+    console.log('Starting comprehensive sync of', storedOfflineItems.length, 'offline items');
     
     try {
       const user = await getCurrentUser();
@@ -146,62 +167,107 @@ export const useShoppingItems = () => {
         return;
       }
 
-      for (const item of storedOfflineItems) {
-        try {
-          const { user_id, ...itemData } = item;
-          console.log('Syncing item:', item.name);
-          
-          const { data: existingItem } = await supabase
-            .from('shopping_items')
-            .select('id, updated_at')
-            .eq('id', item.id)
-            .single();
+      // First, fetch current server state to compare
+      const { data: serverItems } = await supabase
+        .from('shopping_items')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-          if (existingItem) {
-            // Only update if offline item is newer
-            const offlineUpdateTime = new Date(item.updated_at).getTime();
-            const onlineUpdateTime = new Date(existingItem.updated_at).getTime();
+      console.log('Current server items:', serverItems?.length || 0);
+      console.log('Offline items to sync:', storedOfflineItems.length);
+
+      const syncResults = {
+        created: 0,
+        updated: 0,
+        conflicts: 0,
+        errors: 0
+      };
+
+      // Process each offline item
+      for (const offlineItem of storedOfflineItems) {
+        try {
+          const { user_id, ...itemData } = offlineItem;
+          
+          // Check if item exists on server
+          const existingServerItem = serverItems?.find(si => si.id === offlineItem.id);
+          
+          if (existingServerItem) {
+            // Item exists on server - check timestamps to resolve conflicts
+            const offlineTime = new Date(offlineItem.updated_at).getTime();
+            const serverTime = new Date(existingServerItem.updated_at).getTime();
             
-            if (offlineUpdateTime > onlineUpdateTime) {
+            if (offlineTime > serverTime) {
+              // Offline version is newer - update server
               await supabase
                 .from('shopping_items')
                 .update({ ...itemData, user_id: user.id, updated_at: new Date().toISOString() })
-                .eq('id', item.id);
-              console.log('Updated existing item:', item.name);
+                .eq('id', offlineItem.id);
+              
+              console.log('Updated server with newer offline version:', offlineItem.name);
+              syncResults.updated++;
+            } else if (serverTime > offlineTime) {
+              // Server version is newer - this is a conflict
+              console.log('Conflict detected for item:', offlineItem.name, 'Server version is newer');
+              syncResults.conflicts++;
+              // In this case, we keep the server version and discard offline changes
+              // You might want to implement a more sophisticated conflict resolution
             } else {
-              console.log('Skipping update for', item.name, '- online version is newer');
+              // Same timestamp - no action needed
+              console.log('Item timestamps match:', offlineItem.name);
             }
           } else {
-            // Insert new item
+            // Item doesn't exist on server - create it
             await supabase
               .from('shopping_items')
               .insert({ ...itemData, user_id: user.id });
-            console.log('Inserted new item:', item.name);
+            
+            console.log('Created new server item:', offlineItem.name);
+            syncResults.created++;
           }
         } catch (itemError) {
-          console.error('Error syncing item:', item.name, itemError);
+          console.error('Error syncing item:', offlineItem.name, itemError);
+          syncResults.errors++;
         }
       }
 
-      // Clear offline storage after successful sync
-      localStorage.removeItem(OFFLINE_KEY);
-      setOfflineItems([]);
+      console.log('Sync completed:', syncResults);
+
+      // Clear offline storage after successful sync (even with some conflicts/errors)
+      if (syncResults.errors < storedOfflineItems.length / 2) { // Only clear if less than 50% errors
+        localStorage.removeItem(OFFLINE_KEY);
+        setOfflineItems([]);
+        localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+      }
+
+      // Refresh the items list
       await queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
+      
       setSyncStatus('idle');
-      console.log('Sync completed successfully');
+      
+      if (syncResults.errors > 0) {
+        console.warn(`Sync completed with ${syncResults.errors} errors`);
+      }
+      
     } catch (error) {
       console.error('Sync failed:', error);
       setSyncStatus('error');
+      
+      // Retry sync after a delay
+      setTimeout(() => {
+        if (navigator.onLine) {
+          console.log('Retrying sync after error...');
+          syncOfflineData();
+        }
+      }, 10000); // Retry after 10 seconds
     }
   };
 
-  // Create item mutation with immediate UI update
+  // Create item mutation with enhanced offline support
   const createItemMutation = useMutation({
     mutationFn: async (newItem: Omit<ShoppingItem, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
       const user = await getCurrentUser();
-      if (!user && isOnline) throw new Error('Not authenticated');
-
-      const itemWithUser = {
+      
+      const itemWithMetadata = {
         ...newItem,
         user_id: user?.id || '',
         id: crypto.randomUUID(),
@@ -210,31 +276,27 @@ export const useShoppingItems = () => {
       };
 
       if (isOnline && user) {
-        console.log('Creating item online:', itemWithUser.name);
+        console.log('Creating item online:', itemWithMetadata.name);
         const { data, error } = await supabase
           .from('shopping_items')
-          .insert(itemWithUser)
+          .insert(itemWithMetadata)
           .select()
           .single();
         
         if (error) throw error;
         return data;
       } else {
-        console.log('Creating item offline:', itemWithUser.name);
+        console.log('Creating item offline:', itemWithMetadata.name);
         const currentOfflineItems = getOfflineItems();
-        const updatedItems = [itemWithUser, ...currentOfflineItems];
+        const updatedItems = [itemWithMetadata, ...currentOfflineItems];
         saveOfflineItems(updatedItems);
-        return itemWithUser;
+        return itemWithMetadata;
       }
     },
     onMutate: async (newItem) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['shopping-items'] });
-
-      // Snapshot the previous value
       const previousItems = queryClient.getQueryData(['shopping-items']) as ShoppingItem[] || [];
 
-      // Create the optimistic item
       const optimisticItem = {
         ...newItem,
         id: crypto.randomUUID(),
@@ -243,35 +305,42 @@ export const useShoppingItems = () => {
         user_id: '',
       };
 
-      // Optimistically update the cache
-      queryClient.setQueryData(['shopping-items'], [optimisticItem, ...previousItems]);
+      const newItems = [optimisticItem, ...previousItems];
+      queryClient.setQueryData(['shopping-items'], newItems);
 
       return { previousItems };
     },
     onError: (err, newItem, context) => {
-      // Roll back the optimistic update
       if (context?.previousItems) {
         queryClient.setQueryData(['shopping-items'], context.previousItems);
       }
+      console.error('Create item error:', err);
+    },
+    onSuccess: () => {
+      console.log('Item created successfully');
     },
     onSettled: () => {
-      // Always refetch after error or success
       if (isOnline) {
         queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
       }
     },
   });
 
-  // Update item mutation with optimistic updates
+  // Update item mutation with enhanced conflict resolution
   const updateItemMutation = useMutation({
     mutationFn: async (updatedItem: ShoppingItem) => {
       console.log('Updating item:', updatedItem.name, 'Online:', isOnline);
       
+      const itemWithTimestamp = { 
+        ...updatedItem, 
+        updated_at: new Date().toISOString() 
+      };
+      
       if (isOnline) {
-        const { user_id, ...updateData } = updatedItem;
+        const { user_id, ...updateData } = itemWithTimestamp;
         const { data, error } = await supabase
           .from('shopping_items')
-          .update({ ...updateData, updated_at: new Date().toISOString() })
+          .update(updateData)
           .eq('id', updatedItem.id)
           .select()
           .single();
@@ -282,11 +351,11 @@ export const useShoppingItems = () => {
         // Update offline
         const currentOfflineItems = getOfflineItems();
         const index = currentOfflineItems.findIndex(item => item.id === updatedItem.id);
-        const itemWithTimestamp = { ...updatedItem, updated_at: new Date().toISOString() };
         
         if (index !== -1) {
           currentOfflineItems[index] = itemWithTimestamp;
         } else {
+          // Item doesn't exist in offline storage, add it
           currentOfflineItems.unshift(itemWithTimestamp);
         }
         saveOfflineItems(currentOfflineItems);
@@ -297,9 +366,8 @@ export const useShoppingItems = () => {
       await queryClient.cancelQueries({ queryKey: ['shopping-items'] });
       const previousItems = queryClient.getQueryData(['shopping-items']) as ShoppingItem[] || [];
       
-      // Optimistically update the cache
       const updatedItems = previousItems.map(item => 
-        item.id === updatedItem.id ? updatedItem : item
+        item.id === updatedItem.id ? { ...updatedItem, updated_at: new Date().toISOString() } : item
       );
       queryClient.setQueryData(['shopping-items'], updatedItems);
       
@@ -309,6 +377,7 @@ export const useShoppingItems = () => {
       if (context?.previousItems) {
         queryClient.setQueryData(['shopping-items'], context.previousItems);
       }
+      console.error('Update item error:', err);
     },
     onSettled: () => {
       if (isOnline) {
@@ -330,25 +399,66 @@ export const useShoppingItems = () => {
         
         if (error) throw error;
       } else {
-        // Remove from offline storage
+        // For offline deletion, we could either:
+        // 1. Remove from offline storage (immediate deletion)
+        // 2. Mark as deleted and sync later (safer)
+        // Using approach 1 for simplicity, but approach 2 would be more robust
         const currentOfflineItems = getOfflineItems();
         const filtered = currentOfflineItems.filter(item => item.id !== id);
         saveOfflineItems(filtered);
       }
       return id;
     },
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['shopping-items'] });
+      const previousItems = queryClient.getQueryData(['shopping-items']) as ShoppingItem[] || [];
+      
+      const filteredItems = previousItems.filter(item => item.id !== deletedId);
+      queryClient.setQueryData(['shopping-items'], filteredItems);
+      
+      return { previousItems };
+    },
+    onError: (err, deletedId, context) => {
+      if (context?.previousItems) {
+        queryClient.setQueryData(['shopping-items'], context.previousItems);
+      }
+      console.error('Delete item error:', err);
+    },
     onSuccess: (deletedId) => {
+      if (!isOnline) {
+        setOfflineItems(prev => prev.filter(item => item.id !== deletedId));
+      }
+    },
+    onSettled: () => {
       if (isOnline) {
         queryClient.invalidateQueries({ queryKey: ['shopping-items'] });
-      } else {
-        // Update local state immediately for offline
-        setOfflineItems(prev => prev.filter(item => item.id !== deletedId));
       }
     },
   });
 
-  // Combine online and offline items
-  const allItems = isOnline ? items : offlineItems;
+  // Combine online and offline items intelligently
+  const allItems = (() => {
+    if (isOnline) {
+      return items || [];
+    } else {
+      // When offline, merge cached online items with offline items
+      const cachedOnlineItems = queryClient.getQueryData(['shopping-items']) as ShoppingItem[] || [];
+      const currentOfflineItems = offlineItems;
+      
+      // Create a map to avoid duplicates, preferring offline versions
+      const itemMap = new Map<string, ShoppingItem>();
+      
+      // First add cached online items
+      cachedOnlineItems.forEach(item => itemMap.set(item.id, item));
+      
+      // Then add/override with offline items (they're more recent)
+      currentOfflineItems.forEach(item => itemMap.set(item.id, item));
+      
+      return Array.from(itemMap.values()).sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+  })();
 
   return {
     items: allItems,
@@ -363,5 +473,7 @@ export const useShoppingItems = () => {
     isCreating: createItemMutation.isPending,
     isUpdating: updateItemMutation.isPending,
     isDeleting: deleteItemMutation.isPending,
+    // Expose sync function for manual triggering
+    syncOfflineData,
   };
 };

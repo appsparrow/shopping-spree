@@ -495,9 +495,9 @@ const ShoppingTracker = () => {
         {sortedItems.map(item => (
           <div key={item.id} className="relative">
             <Card 
-              className={`hover:shadow-md transition-shadow ${
+              className={`hover:shadow-md transition-shadow overflow-hidden ${
                 item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
-              } ${item.purchased ? 'opacity-75 bg-gray-50' : ''} overflow-hidden`}
+              } ${item.purchased ? 'bg-green-50 border-green-300' : ''}`}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
               onTouchEnd={() => onTouchEnd(item.id)}
@@ -538,11 +538,16 @@ const ShoppingTracker = () => {
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div>
-                        <h3 className={`font-semibold text-gray-900 truncate text-lg mb-2 ${item.purchased ? 'line-through' : ''}`}>
+                        <h3 className={`font-semibold text-gray-900 truncate text-lg mb-2 ${
+                          item.purchased ? 'text-green-700' : ''
+                        }`}>
                           {item.name}
+                          {item.purchased && <span className="ml-2">✓</span>}
                         </h3>
                         <div>
-                          <p className="text-2xl font-bold text-green-600">
+                          <p className={`text-2xl font-bold ${
+                            item.purchased ? 'text-green-600' : 'text-blue-600'
+                          }`}>
                             {getToCurrencySymbol()}{item.price_converted.toFixed(2)}
                           </p>
                           <p className="text-sm font-semibold text-red-500">
@@ -560,11 +565,11 @@ const ShoppingTracker = () => {
                               e.stopPropagation();
                               toggleLike(item);
                             }}
-                            className="h-8 w-8 rounded-full hover:bg-pink-50"
+                            className="h-10 w-10 rounded-full hover:bg-pink-50"
                             disabled={isUpdating}
                           >
                             <Heart 
-                              className={`w-4 h-4 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-800'}`} 
+                              className={`w-6 h-6 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-800'}`} 
                             />
                           </Button>
                           <Button
@@ -574,11 +579,11 @@ const ShoppingTracker = () => {
                               e.stopPropagation();
                               togglePurchased(item);
                             }}
-                            className="h-8 w-8 rounded-full hover:bg-green-50"
+                            className="h-10 w-10 rounded-full hover:bg-green-50"
                             disabled={isUpdating}
                           >
                             <ShoppingCart 
-                              className={`w-4 h-4 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-800'}`} 
+                              className={`w-6 h-6 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-800'}`} 
                             />
                           </Button>
                         </div>

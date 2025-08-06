@@ -33,8 +33,8 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         
-        {/* Action Buttons - Right Side */}
-        <div className="absolute right-4 bottom-20 flex flex-col gap-4">
+        {/* Action Buttons - Right Side - Made bigger */}
+        <div className="absolute right-4 bottom-24 flex flex-col gap-6">
           {/* Like Button */}
           <div className="flex flex-col items-center">
             <Button
@@ -42,17 +42,17 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
               size="icon"
               onClick={() => onToggleLike(item)}
               disabled={isUpdating}
-              className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all"
+              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all"
             >
               <Heart 
-                className={`w-6 h-6 ${
+                className={`w-8 h-8 ${
                   item.liked 
                     ? 'fill-red-500 text-red-500' 
                     : 'text-white'
                 }`} 
               />
             </Button>
-            <span className="text-white text-xs font-semibold mt-1">
+            <span className="text-white text-sm font-semibold mt-2">
               {item.liked ? '❤️' : '🤍'}
             </span>
           </div>
@@ -64,17 +64,17 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
               size="icon"
               onClick={() => onTogglePurchased(item)}
               disabled={isUpdating}
-              className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all"
+              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all"
             >
               <ShoppingCart 
-                className={`w-6 h-6 ${
+                className={`w-8 h-8 ${
                   item.purchased 
                     ? 'fill-green-500 text-green-500' 
                     : 'text-white'
                 }`} 
               />
             </Button>
-            <span className="text-white text-xs font-semibold mt-1">
+            <span className="text-white text-sm font-semibold mt-2">
               {item.purchased ? '✅' : '🛒'}
             </span>
           </div>
@@ -84,11 +84,11 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all"
+              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all"
             >
-              <Share2 className="w-6 h-6 text-white" />
+              <Share2 className="w-8 h-8 text-white" />
             </Button>
-            <span className="text-white text-xs font-semibold mt-1">📤</span>
+            <span className="text-white text-sm font-semibold mt-2">📤</span>
           </div>
         </div>
 
@@ -97,7 +97,9 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
           <div className="mb-2">
             <h3 className="text-lg font-bold mb-1 line-clamp-2">{item.name}</h3>
             <div className="flex items-center gap-2">
-              <div className="bg-green-500 rounded-full px-3 py-1">
+              <div className={`rounded-full px-3 py-1 ${
+                item.purchased ? 'bg-green-500' : 'bg-blue-500'
+              }`}>
                 <span className="text-white font-bold text-lg">
                   {currencySymbol}{item.price_converted.toFixed(0)}
                 </span>
@@ -113,13 +115,13 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
           {/* Status Indicators */}
           <div className="flex gap-2 mt-2">
             {item.purchased && (
-              <div className="bg-green-500/90 backdrop-blur-sm rounded-full px-2 py-1">
-                <span className="text-xs font-semibold">Purchased ✓</span>
+              <div className="bg-green-500/90 backdrop-blur-sm rounded-full px-3 py-1">
+                <span className="text-sm font-semibold">Purchased ✓</span>
               </div>
             )}
             {item.liked && (
-              <div className="bg-red-500/90 backdrop-blur-sm rounded-full px-2 py-1">
-                <span className="text-xs font-semibold">Liked ❤️</span>
+              <div className="bg-red-500/90 backdrop-blur-sm rounded-full px-3 py-1">
+                <span className="text-sm font-semibold">Liked ❤️</span>
               </div>
             )}
           </div>
