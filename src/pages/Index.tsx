@@ -10,7 +10,7 @@ import { useTrips } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 
-const Index = () => {
+const Index: React.FC = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list'); // list, create, view, setup, shopping
