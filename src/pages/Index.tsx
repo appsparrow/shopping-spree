@@ -16,16 +16,21 @@ const Index: React.FC = () => {
   
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [view, setView] = useState<string>('list'); // list, create, view, setup, shopping
+  const [view, setView] = useState<string>('list');
   
-  let currentTrip = null;
-  try {
-    const tripsData = useTrips();
-    currentTrip = tripsData.currentTrip;
-    console.log('Current trip:', currentTrip);
-  } catch (error) {
-    console.error('Error using useTrips hook:', error);
-  }
+  // Initialize currentTrip as null by default
+  const [currentTrip, setCurrentTrip] = useState<any>(null);
+  
+  // Use useTrips hook properly within the component
+  const tripsData = useTrips();
+  
+  // Update currentTrip when tripsData changes
+  useEffect(() => {
+    if (tripsData.currentTrip) {
+      setCurrentTrip(tripsData.currentTrip);
+      console.log('Current trip updated:', tripsData.currentTrip);
+    }
+  }, [tripsData.currentTrip]);
 
   useEffect(() => {
     console.log('Index useEffect running...');
@@ -120,7 +125,13 @@ const Index: React.FC = () => {
               </div>
             </div>
             <TripsList 
-              onSelectTrip={(tripId) => setView('view')}
+              onSelectTrip={(tripId) => {
+                const trip = tripsData.trips.find(t => t.id === tripId);
+                if (trip) {
+                  setCurrentTrip(trip);
+                  setView('view');
+                }
+              }}
               onCreateTrip={() => setView('create')}
             />
           </div>
