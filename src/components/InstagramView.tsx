@@ -1,9 +1,8 @@
+
 import React, { useRef, useState } from 'react';
-import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Download, ArrowLeft, ShoppingBag, Heart, MapPin, Eye, EyeOff, ChevronUp, X } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Heart, MapPin, Download, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { ShoppingItem } from '@/hooks/useShoppingItems';
-import InstagramCard from './InstagramCard';
 
 interface InstagramViewProps {
   items: ShoppingItem[];
@@ -25,13 +24,9 @@ interface InstagramViewProps {
 const InstagramView: React.FC<InstagramViewProps> = ({
   items,
   totalSpent,
-  totalItems,
   purchasedCount,
   totalCount,
   currencySymbol,
-  exchangeRate,
-  fromCurrency,
-  toCurrency,
   location,
   onClose,
   onToggleLike,
@@ -39,13 +34,9 @@ const InstagramView: React.FC<InstagramViewProps> = ({
   isUpdating
 }) => {
   const viewRef = useRef<HTMLDivElement>(null);
-  const [showExchangeRate, setShowExchangeRate] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showAllProducts, setShowAllProducts] = useState(false);
-  const [fullScreenItem, setFullScreenItem] = useState<ShoppingItem | null>(null);
 
-  const shareToInstagram = async (item: ShoppingItem) => {
-    // Create a temporary canvas to render the card as an image
+  const shareToInstagram = async () => {
     if (viewRef.current) {
       try {
         const html2canvas = await import('html2canvas');
@@ -61,8 +52,8 @@ const InstagramView: React.FC<InstagramViewProps> = ({
             const file = new File([blob], 'shopping-item.png', { type: 'image/png' });
             try {
               await navigator.share({
-                title: `Check out this ${item.name}!`,
-                text: `Found this amazing ${item.name} for ${currencySymbol}${item.price_converted.toFixed(0)}`,
+                title: `Check out this ${items[currentIndex].name}!`,
+                text: `Found this amazing ${items[currentIndex].name} for ${currencySymbol}${items[currentIndex].price_converted.toFixed(0)}`,
                 files: [file]
               });
             } catch (error) {
@@ -90,53 +81,21 @@ const InstagramView: React.FC<InstagramViewProps> = ({
     }
   };
 
-  const downloadImage = () => {
-    if (viewRef.current) {
-      import('html2canvas').then(html2canvas => {
-        html2canvas.default(viewRef.current!, {
-          backgroundColor: '#ffffff',
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          height: viewRef.current!.scrollHeight,
-          width: viewRef.current!.scrollWidth,
-        }).then(canvas => {
-          const link = document.createElement('a');
-          link.download = 'shopping-haul.png';
-          link.href = canvas.toDataURL('image/png', 1.0);
-          link.click();
-        });
-      }).catch(() => {
-        alert('Screenshot feature requires additional setup. Please take a manual screenshot for now!');
-      });
-    }
-  };
-
-  const handleSwipeUp = () => {
+  const nextItem = () => {
     if (currentIndex < items.length - 1) {
       setCurrentIndex(currentIndex + 1);
-    } else {
-      setShowAllProducts(true);
     }
   };
 
-  const handleSwipeDown = () => {
-    if (showAllProducts) {
-      setShowAllProducts(false);
-      return;
-    }
+  const prevItem = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
     }
   };
 
-  const handleCardClick = (item: ShoppingItem) => {
-    setFullScreenItem(item);
-  };
-
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-4 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center text-white">
           <ShoppingBag className="w-16 h-16 mx-auto mb-4 opacity-50" />
           <h2 className="text-xl font-bold mb-2">No Items Found</h2>
@@ -144,101 +103,11 @@ const InstagramView: React.FC<InstagramViewProps> = ({
           <Button 
             variant="outline" 
             onClick={onClose}
-            className="mt-4 text-purple-600 border-white bg-white hover:bg-gray-100"
+            className="mt-4 text-white border-white bg-transparent hover:bg-white hover:text-black"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Shopping
+            Back
           </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Full screen item view
-  if (fullScreenItem) {
-    return (
-      <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
-        <div className="absolute top-4 right-4 z-10">
-          <Button
-            variant="ghost"
-            onClick={() => setFullScreenItem(null)}
-            className="text-white hover:bg-white/20 rounded-full"
-          >
-            <X className="w-6 h-6" />
-          </Button>
-        </div>
-        <div ref={viewRef} className="w-full max-w-md">
-          <InstagramCard
-            item={fullScreenItem}
-            currencySymbol={currencySymbol}
-            onToggleLike={onToggleLike}
-            onTogglePurchased={onTogglePurchased}
-            onShare={shareToInstagram}
-            isUpdating={isUpdating}
-            location={location}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (showAllProducts) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-4">
-        <div className="max-w-lg mx-auto">
-          {/* Header Controls */}
-          <div className="flex items-center justify-between mb-4 text-white">
-            <Button
-              variant="ghost"
-              onClick={() => setShowAllProducts(false)}
-              className="text-white hover:bg-white/20"
-            >
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-xl font-bold">All Products ({items.length})</h1>
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              className="text-white hover:bg-white/20"
-            >
-              Close
-            </Button>
-          </div>
-
-          {/* All Products Grid */}
-          <div className="grid grid-cols-2 gap-3 pb-20">
-            {items.map((item, index) => (
-              <div key={item.id} className="aspect-[3/4] relative">
-                <img 
-                  src={item.photo} 
-                  alt={item.name}
-                  className="w-full h-full object-cover rounded-xl"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-xl" />
-                <div className="absolute bottom-2 left-2 right-2 text-white">
-                  <p className="text-sm font-semibold truncate">{item.name}</p>
-                  <p className="text-xs">{currencySymbol}{item.price_converted.toFixed(0)}</p>
-                </div>
-                <div className="absolute top-2 right-2 flex gap-1">
-                  {item.liked && (
-                    <div className="bg-red-500 rounded-full p-1">
-                      <Heart className="w-3 h-3 fill-white text-white" />
-                    </div>
-                  )}
-                  {item.purchased && (
-                    <div className="bg-green-500 rounded-full p-1">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
-                  )}
-                </div>
-                <div 
-                  className="absolute inset-0 cursor-pointer"
-                  onClick={() => handleCardClick(item)}
-                />
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     );
@@ -248,94 +117,155 @@ const InstagramView: React.FC<InstagramViewProps> = ({
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Header */}
+      <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
+        <Button
+          variant="ghost"
+          onClick={onClose}
+          className="text-white hover:bg-white/20 rounded-full"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        
+        <div className="text-white text-center">
+          <p className="text-sm opacity-80">{currentIndex + 1} / {items.length}</p>
+        </div>
+
+        <Button
+          variant="ghost"
+          onClick={shareToInstagram}
+          className="text-white hover:bg-white/20 rounded-full"
+        >
+          <Download className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* Main Content - TikTok/Instagram Style */}
       <div ref={viewRef} className="h-screen flex items-center justify-center relative">
-        {/* Background with current item */}
+        {/* Background Image */}
         <div className="absolute inset-0">
           <img 
             src={currentItem.photo} 
             alt={currentItem.name}
-            className="w-full h-full object-cover blur-sm opacity-30"
+            className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-black/40" />
         </div>
 
-        {/* Header Controls */}
-        <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
+        {/* Navigation arrows */}
+        {currentIndex > 0 && (
           <Button
             variant="ghost"
-            onClick={onClose}
-            className="text-white hover:bg-white/20"
+            onClick={prevItem}
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 text-white hover:bg-white/20 rounded-full"
           >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back
+            <ChevronUp className="w-6 h-6" />
           </Button>
-          
-          <div className="text-white text-center">
-            <p className="text-sm opacity-80">{currentIndex + 1} of {items.length}</p>
-            {location && (
-              <div className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                <span className="text-xs">{location}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => setShowExchangeRate(!showExchangeRate)}
-              className="text-white hover:bg-white/20"
-            >
-              {showExchangeRate ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={downloadImage}
-              className="text-white hover:bg-white/20"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Exchange Rate Badge */}
-        {showExchangeRate && (
-          <div className="absolute top-16 left-4 right-4 z-10">
-            <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 text-center">
-              <p className="text-white text-sm font-medium">
-                {fromCurrency} {exchangeRate.toFixed(2)} = {toCurrency} 1.00
-              </p>
-            </div>
-          </div>
         )}
 
-        {/* Main Product Card */}
-        <div className="relative z-10 max-w-sm w-full mx-4">
-          <InstagramCard
-            item={currentItem}
-            currencySymbol={currencySymbol}
-            onToggleLike={onToggleLike}
-            onTogglePurchased={onTogglePurchased}
-            onCardClick={handleCardClick}
-            onShare={shareToInstagram}
-            isUpdating={isUpdating}
-            location={location}
-          />
+        {currentIndex < items.length - 1 && (
+          <Button
+            variant="ghost"
+            onClick={nextItem}
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 text-white hover:bg-white/20 rounded-full"
+          >
+            <ChevronDown className="w-6 h-6" />
+          </Button>
+        )}
+
+        {/* Action Buttons - Right Side */}
+        <div className="absolute right-4 bottom-32 flex flex-col gap-4 z-10">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggleLike(currentItem)}
+            disabled={isUpdating}
+            className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"
+          >
+            <Heart 
+              className={`w-10 h-10 ${
+                currentItem.liked 
+                  ? 'fill-red-500 text-red-500' 
+                  : 'text-white'
+              }`} 
+            />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onTogglePurchased(currentItem)}
+            disabled={isUpdating}
+            className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30"
+          >
+            <ShoppingBag 
+              className={`w-10 h-10 ${
+                currentItem.purchased 
+                  ? 'fill-green-500 text-green-500' 
+                  : 'text-white'
+              }`} 
+            />
+          </Button>
         </div>
 
-        {/* Swipe Indicators */}
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
-          <div className="flex flex-col items-center text-white">
-            <Button
-              variant="ghost"
-              onClick={handleSwipeUp}
-              className="p-2 hover:bg-white/20 rounded-full"
-            >
-              <ChevronUp className="w-6 h-6" />
-            </Button>
-            <p className="text-xs opacity-80 mt-1">
-              {currentIndex < items.length - 1 ? 'Swipe up for next' : 'Swipe up for all'}
-            </p>
+        {/* Content - Bottom Left */}
+        <div className="absolute bottom-0 left-0 right-20 p-6 text-white z-10">
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold mb-2 line-clamp-2">{currentItem.name}</h1>
+            
+            {/* Price Display */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`px-4 py-2 rounded-full ${
+                currentItem.purchased ? 'bg-green-500' : 'bg-blue-500'
+              }`}>
+                <span className="text-white font-bold text-2xl">
+                  {currencySymbol}{currentItem.price_converted.toFixed(0)}
+                </span>
+              </div>
+              <span className="text-lg opacity-80">
+                ¥{currentItem.price_original.toFixed(0)}
+              </span>
+            </div>
+
+            {/* Location */}
+            {location && (
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin className="w-4 h-4" />
+                <span className="text-sm opacity-90">{location}</span>
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="flex items-center gap-3">
+              {currentItem.purchased && (
+                <div className="bg-green-500/90 backdrop-blur-sm rounded-full px-3 py-1">
+                  <span className="text-white text-sm font-medium">✓ Bought</span>
+                </div>
+              )}
+              {currentItem.liked && (
+                <div className="bg-red-500/90 backdrop-blur-sm rounded-full px-3 py-1">
+                  <span className="text-white text-sm font-medium">❤️ Liked</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
+            <div className="grid grid-cols-3 gap-4 text-center text-sm">
+              <div>
+                <p className="font-bold text-lg">{totalCount}</p>
+                <p className="opacity-90">Items</p>
+              </div>
+              <div>
+                <p className="font-bold text-lg">{purchasedCount}</p>
+                <p className="opacity-90">Bought</p>
+              </div>
+              <div>
+                <p className="font-bold text-lg">{currencySymbol}{totalSpent.toFixed(0)}</p>
+                <p className="opacity-90">Spent</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -352,9 +282,9 @@ const InstagramView: React.FC<InstagramViewProps> = ({
               
               if (Math.abs(deltaY) > 50) {
                 if (deltaY > 0) {
-                  handleSwipeUp();
+                  nextItem();
                 } else {
-                  handleSwipeDown();
+                  prevItem();
                 }
               }
               
@@ -364,26 +294,6 @@ const InstagramView: React.FC<InstagramViewProps> = ({
             document.addEventListener('touchend', handleTouchEnd);
           }}
         />
-
-        {/* Summary Stats - Bottom */}
-        <div className="absolute bottom-4 left-4 right-4 z-20">
-          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-white">
-            <div className="grid grid-cols-3 gap-4 text-center text-sm">
-              <div>
-                <p className="font-bold">{totalCount}</p>
-                <p className="opacity-80">Items</p>
-              </div>
-              <div>
-                <p className="font-bold">{purchasedCount}</p>
-                <p className="opacity-80">Bought</p>
-              </div>
-              <div>
-                <p className="font-bold">{currencySymbol}{totalSpent.toFixed(0)}</p>
-                <p className="opacity-80">Spent</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

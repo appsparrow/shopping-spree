@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -60,6 +59,11 @@ const ShoppingTracker = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const minSwipeDistance = 50;
+
+  const formatShortDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
@@ -294,7 +298,7 @@ const ShoppingTracker = () => {
           </Button>
         </div>
 
-        {/* Simplified Currency Rate */}
+        {/* Simplified Currency Rate - Single Row */}
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
           <CardContent className="p-4">
             {editingRate ? (
@@ -349,17 +353,16 @@ const ShoppingTracker = () => {
               </div>
             ) : (
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Exchange Rate</p>
+                <div className="text-center flex-1">
                   <p className="text-lg font-bold text-blue-600">
-                    {getFromCurrencySymbol()}{exchangeRate.toFixed(2)} = {getToCurrencySymbol()}1.00
+                    ¥{exchangeRate.toFixed(0)} = ${1.00}
                   </p>
                 </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setEditingRate(true)}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 ml-3"
                 >
                   <Edit3 className="w-3 h-3" />
                   Edit
@@ -491,7 +494,7 @@ const ShoppingTracker = () => {
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* Items List with improved swipe and vertical buttons */}
+      {/* Items List with improved vertical swipe buttons */}
       <div className="space-y-3">
         {sortedItems.map(item => (
           <div key={item.id} className="relative">
@@ -499,7 +502,7 @@ const ShoppingTracker = () => {
               className={`hover:shadow-md transition-all duration-200 overflow-hidden ${
                 item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
               } ${item.purchased ? 'bg-green-50 border-green-300' : ''} ${
-                swipedItemId === item.id ? 'transform -translate-x-16' : ''
+                swipedItemId === item.id ? 'transform -translate-x-20' : ''
               }`}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
@@ -562,7 +565,7 @@ const ShoppingTracker = () => {
                           </p>
                         </div>
                         
-                        <p className="text-xs text-gray-400">{item.timestamp.split(',')[0]}</p>
+                        <p className="text-xs text-gray-400">{formatShortDate(item.created_at)}</p>
                       </div>
                     </div>
 
@@ -575,11 +578,11 @@ const ShoppingTracker = () => {
                           e.stopPropagation();
                           toggleLike(item);
                         }}
-                        className="h-12 w-12 rounded-full hover:bg-pink-50 p-0"
+                        className="h-10 w-10 rounded-full hover:bg-pink-50 p-0"
                         disabled={isUpdating}
                       >
                         <Heart 
-                          className={`w-8 h-8 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-600'}`} 
+                          className={`w-6 h-6 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
                         />
                       </Button>
                       
@@ -590,11 +593,11 @@ const ShoppingTracker = () => {
                           e.stopPropagation();
                           togglePurchased(item);
                         }}
-                        className="h-12 w-12 rounded-full hover:bg-green-50 p-0"
+                        className="h-10 w-10 rounded-full hover:bg-green-50 p-0"
                         disabled={isUpdating}
                       >
-                        <ShoppingCart 
-                          className={`w-8 h-8 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-600'}`} 
+                        <ShoppingBag 
+                          className={`w-6 h-6 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-400'}`} 
                         />
                       </Button>
                     </div>
@@ -603,25 +606,25 @@ const ShoppingTracker = () => {
               </CardContent>
             </Card>
 
-            {/* Swipe Actions - Edit and Delete */}
+            {/* Vertical Swipe Actions - Edit and Delete */}
             {swipedItemId === item.id && (
-              <div className="absolute right-0 top-0 h-full flex items-center gap-1 pr-2">
+              <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center gap-2 pr-2 py-2">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => startEditing(item)}
-                  className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-12 w-12"
+                  className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-10 w-10 rounded-full"
                 >
-                  <Edit3 className="w-5 h-5" />
+                  <Edit3 className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => handleDelete(item.id)}
-                  className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-12 w-12"
+                  className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-10 w-10 rounded-full"
                   disabled={isDeleting}
                 >
-                  <Trash2 className="w-5 h-5" />
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             )}

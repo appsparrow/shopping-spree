@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Heart, ShoppingCart, Share2 } from 'lucide-react';
+import { Heart, ShoppingBag, Share2 } from 'lucide-react';
 import { ShoppingItem } from '@/hooks/useShoppingItems';
 
 interface InstagramCardProps {
@@ -57,77 +57,71 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         
-        {/* Action Buttons - Right Side - Larger and properly aligned */}
-        <div className="absolute right-4 bottom-32 flex flex-col gap-4 items-center">
+        {/* Action Buttons - Right Side - Vertical alignment */}
+        <div className="absolute right-4 bottom-24 flex flex-col gap-3 items-center">
           {/* Like Button */}
-          <div className="flex flex-col items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleLike(item);
-              }}
-              disabled={isUpdating}
-              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all border-2 border-white/20"
-            >
-              <Heart 
-                className={`w-10 h-10 ${
-                  item.liked 
-                    ? 'fill-red-500 text-red-500' 
-                    : 'text-white'
-                }`} 
-              />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleLike(item);
+            }}
+            disabled={isUpdating}
+            className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all border-2 border-white/20"
+          >
+            <Heart 
+              className={`w-8 h-8 ${
+                item.liked 
+                  ? 'fill-red-500 text-red-500' 
+                  : 'text-white'
+              }`} 
+            />
+          </Button>
           
-          {/* Shopping Cart Button */}
-          <div className="flex flex-col items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                onTogglePurchased(item);
-              }}
-              disabled={isUpdating}
-              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all border-2 border-white/20"
-            >
-              <ShoppingCart 
-                className={`w-10 h-10 ${
-                  item.purchased 
-                    ? 'fill-green-500 text-green-500' 
-                    : 'text-white'
-                }`} 
-              />
-            </Button>
-          </div>
+          {/* Shopping Bag Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePurchased(item);
+            }}
+            disabled={isUpdating}
+            className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all border-2 border-white/20"
+          >
+            <ShoppingBag 
+              className={`w-8 h-8 ${
+                item.purchased 
+                  ? 'fill-green-500 text-green-500' 
+                  : 'text-white'
+              }`} 
+            />
+          </Button>
 
           {/* Share Button */}
-          <div className="flex flex-col items-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onShare) onShare(item);
-              }}
-              className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all border-2 border-white/20"
-            >
-              <Share2 className="w-10 h-10 text-white" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onShare) onShare(item);
+            }}
+            className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all border-2 border-white/20"
+          >
+            <Share2 className="w-8 h-8 text-white" />
+          </Button>
         </div>
 
         {/* Product Info - Bottom */}
         <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
           <div className="mb-2">
-            <h3 className="text-lg font-bold mb-1 line-clamp-2">{item.name}</h3>
-            <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold mb-2 line-clamp-2">{item.name}</h3>
+            <div className="flex items-center gap-2 mb-2">
               <div className={`rounded-full px-3 py-1 ${
                 item.purchased ? 'bg-green-500' : 'bg-blue-500'
               }`}>
-                <span className="text-white font-bold text-lg">
+                <span className="text-white font-bold text-xl">
                   {currencySymbol}{item.price_converted.toFixed(0)}
                 </span>
               </div>
@@ -146,12 +140,12 @@ const InstagramCard: React.FC<InstagramCardProps> = ({
             <div className="flex gap-1">
               {item.liked && (
                 <div className="bg-red-500/90 backdrop-blur-sm rounded-full w-6 h-6 flex items-center justify-center">
-                  <span className="text-xs">❤️</span>
+                  <Heart className="w-3 h-3 fill-white text-white" />
                 </div>
               )}
               {item.purchased && (
                 <div className="bg-green-500/90 backdrop-blur-sm rounded-full w-6 h-6 flex items-center justify-center">
-                  <span className="text-white text-xs">✓</span>
+                  <ShoppingBag className="w-3 h-3 fill-white text-white" />
                 </div>
               )}
             </div>
