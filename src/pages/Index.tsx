@@ -17,11 +17,9 @@ const Index: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [view, setView] = useState<string>('list');
-  
-  // Initialize currentTrip as null by default
   const [currentTrip, setCurrentTrip] = useState<any>(null);
   
-  // Use useTrips hook properly within the component
+  // Use useTrips hook after all useState hooks
   const tripsData = useTrips();
   
   // Update currentTrip when tripsData changes
