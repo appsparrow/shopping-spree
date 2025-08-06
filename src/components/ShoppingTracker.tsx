@@ -490,7 +490,7 @@ const ShoppingTracker = () => {
         </div>
       )}
 
-      {/* Items List */}
+      {/* Items List - Updated with larger icons and proper purchased styling */}
       <div className="space-y-3">
         {sortedItems.map(item => (
           <div key={item.id} className="relative">
@@ -538,11 +538,13 @@ const ShoppingTracker = () => {
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div>
-                        <h3 className={`font-semibold text-gray-900 truncate text-lg mb-2 ${
-                          item.purchased ? 'text-green-700' : ''
-                        }`}>
+                        <h3 className={`font-semibold text-gray-900 truncate text-lg mb-2`}>
                           {item.name}
-                          {item.purchased && <span className="ml-2">✓</span>}
+                          {item.purchased && (
+                            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✓ Bought
+                            </span>
+                          )}
                         </h3>
                         <div>
                           <p className={`text-2xl font-bold ${
@@ -557,7 +559,7 @@ const ShoppingTracker = () => {
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-gray-400">{item.timestamp}</p>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -565,11 +567,11 @@ const ShoppingTracker = () => {
                               e.stopPropagation();
                               toggleLike(item);
                             }}
-                            className="h-10 w-10 rounded-full hover:bg-pink-50"
+                            className="h-12 w-12 rounded-full hover:bg-pink-50"
                             disabled={isUpdating}
                           >
                             <Heart 
-                              className={`w-6 h-6 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-800'}`} 
+                              className={`w-8 h-8 ${item.liked ? 'fill-pink-600 text-pink-600' : 'text-gray-800'}`} 
                             />
                           </Button>
                           <Button
@@ -579,11 +581,11 @@ const ShoppingTracker = () => {
                               e.stopPropagation();
                               togglePurchased(item);
                             }}
-                            className="h-10 w-10 rounded-full hover:bg-green-50"
+                            className="h-12 w-12 rounded-full hover:bg-green-50"
                             disabled={isUpdating}
                           >
                             <ShoppingCart 
-                              className={`w-6 h-6 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-800'}`} 
+                              className={`w-8 h-8 ${item.purchased ? 'fill-green-600 text-green-600' : 'text-gray-800'}`} 
                             />
                           </Button>
                         </div>

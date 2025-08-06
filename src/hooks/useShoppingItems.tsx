@@ -33,7 +33,10 @@ export const useShoppingItems = () => {
     const handleOnline = () => {
       console.log('Coming back online, starting sync...');
       setIsOnline(true);
-      syncOfflineData();
+      // Add a small delay to ensure network is stable
+      setTimeout(() => {
+        syncOfflineData();
+      }, 1000);
     };
     const handleOffline = () => {
       console.log('Going offline...');
@@ -49,20 +52,19 @@ export const useShoppingItems = () => {
     };
   }, []);
 
-  // Load offline items on mount
+  // Load offline items on mount and when going offline
   useEffect(() => {
-    if (!isOnline) {
-      const items = getOfflineItems();
-      setOfflineItems(items);
-    }
-  }, [isOnline]);
+    const items = getOfflineItems();
+    setOfflineItems(items);
+    console.log('Loaded offline items on mount:', items.length);
+  }, []);
 
   // Auto-sync when coming online
   useEffect(() => {
     if (isOnline && syncStatus === 'idle') {
       const offlineData = getOfflineItems();
       if (offlineData.length > 0) {
-        console.log('Found offline data on startup, syncing...');
+        console.log('Found offline data on startup, syncing...', offlineData.length);
         syncOfflineData();
       }
     }
@@ -92,13 +94,20 @@ export const useShoppingItems = () => {
       if (data) {
         localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
         console.log('Fetched online items:', data?.length);
+        // Clear offline items after successful fetch to prevent duplicates
+        if (getOfflineItems().length > 0 && data.length > 0) {
+          console.log('Clearing offline items after successful online fetch');
+          localStorage.removeItem(OFFLINE_KEY);
+          setOfflineItems([]);
+        }
       }
       
       return data as ShoppingItem[];
     },
     enabled: isOnline,
     refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 1 * 60 * 1000, // 1 minute
+    retry: 3,
   });
 
   // Get offline items from localStorage
@@ -106,7 +115,6 @@ export const useShoppingItems = () => {
     try {
       const stored = localStorage.getItem(OFFLINE_KEY);
       const items = stored ? JSON.parse(stored) : [];
-      console.log('Retrieved offline items:', items.length);
       return items;
     } catch (error) {
       console.error('Error loading offline items:', error);
@@ -125,8 +133,10 @@ export const useShoppingItems = () => {
     }
   };
 
-  // Update exchange rates for all items
+  // Update exchange rates for all items - Fixed to update all items properly
   const updateExchangeRates = (newRate: number, fromCurrency: string, toCurrency: string) => {
+    console.log('Updating exchange rates:', newRate, fromCurrency, toCurrency);
+    
     const currentItems = isOnline ? items : offlineItems;
     const updatedItems = currentItems.map(item => ({
       ...item,
@@ -137,17 +147,23 @@ export const useShoppingItems = () => {
       updated_at: new Date().toISOString()
     }));
 
+    console.log('Updated items with new rates:', updatedItems.length);
+
     if (isOnline) {
       // Update cache immediately for better UX
       queryClient.setQueryData(['shopping-items'], updatedItems);
-      // Update all items in database
-      updatedItems.forEach(item => updateItemMutation.mutate(item));
+      // Update all items in database in batches to avoid overwhelming the server
+      updatedItems.forEach((item, index) => {
+        setTimeout(() => {
+          updateItemMutation.mutate(item);
+        }, index * 100); // Stagger updates by 100ms
+      });
     } else {
       saveOfflineItems(updatedItems);
     }
   };
 
-  // Enhanced sync function to handle complex scenarios
+  // Enhanced sync function with better conflict resolution
   const syncOfflineData = async () => {
     const storedOfflineItems = getOfflineItems();
     if (storedOfflineItems.length === 0) {
@@ -168,18 +184,23 @@ export const useShoppingItems = () => {
       }
 
       // First, fetch current server state to compare
-      const { data: serverItems } = await supabase
+      const { data: serverItems, error: fetchError } = await supabase
         .from('shopping_items')
         .select('*')
         .order('created_at', { ascending: false });
 
+      if (fetchError) {
+        console.error('Error fetching server items for sync:', fetchError);
+        setSyncStatus('error');
+        return;
+      }
+
       console.log('Current server items:', serverItems?.length || 0);
-      console.log('Offline items to sync:', storedOfflineItems.length);
 
       const syncResults = {
         created: 0,
         updated: 0,
-        conflicts: 0,
+        skipped: 0,
         errors: 0
       };
 
@@ -198,32 +219,41 @@ export const useShoppingItems = () => {
             
             if (offlineTime > serverTime) {
               // Offline version is newer - update server
-              await supabase
+              const { error: updateError } = await supabase
                 .from('shopping_items')
                 .update({ ...itemData, user_id: user.id, updated_at: new Date().toISOString() })
                 .eq('id', offlineItem.id);
               
-              console.log('Updated server with newer offline version:', offlineItem.name);
-              syncResults.updated++;
-            } else if (serverTime > offlineTime) {
-              // Server version is newer - this is a conflict
-              console.log('Conflict detected for item:', offlineItem.name, 'Server version is newer');
-              syncResults.conflicts++;
-              // In this case, we keep the server version and discard offline changes
-              // You might want to implement a more sophisticated conflict resolution
+              if (updateError) {
+                console.error('Error updating item:', updateError);
+                syncResults.errors++;
+              } else {
+                console.log('Updated server with newer offline version:', offlineItem.name);
+                syncResults.updated++;
+              }
             } else {
-              // Same timestamp - no action needed
-              console.log('Item timestamps match:', offlineItem.name);
+              // Server version is same or newer - skip
+              console.log('Server version is up to date:', offlineItem.name);
+              syncResults.skipped++;
             }
           } else {
             // Item doesn't exist on server - create it
-            await supabase
+            const { error: insertError } = await supabase
               .from('shopping_items')
               .insert({ ...itemData, user_id: user.id });
             
-            console.log('Created new server item:', offlineItem.name);
-            syncResults.created++;
+            if (insertError) {
+              console.error('Error creating item:', insertError);
+              syncResults.errors++;
+            } else {
+              console.log('Created new server item:', offlineItem.name);
+              syncResults.created++;
+            }
           }
+          
+          // Small delay to avoid overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
         } catch (itemError) {
           console.error('Error syncing item:', offlineItem.name, itemError);
           syncResults.errors++;
@@ -232,11 +262,12 @@ export const useShoppingItems = () => {
 
       console.log('Sync completed:', syncResults);
 
-      // Clear offline storage after successful sync (even with some conflicts/errors)
-      if (syncResults.errors < storedOfflineItems.length / 2) { // Only clear if less than 50% errors
+      // Clear offline storage after successful sync (if most items were processed successfully)
+      if (syncResults.errors < storedOfflineItems.length / 2) {
         localStorage.removeItem(OFFLINE_KEY);
         setOfflineItems([]);
         localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+        console.log('Cleared offline storage after successful sync');
       }
 
       // Refresh the items list
@@ -245,16 +276,18 @@ export const useShoppingItems = () => {
       setSyncStatus('idle');
       
       if (syncResults.errors > 0) {
-        console.warn(`Sync completed with ${syncResults.errors} errors`);
+        console.warn(`Sync completed with ${syncResults.errors} errors out of ${storedOfflineItems.length} items`);
+      } else {
+        console.log(`Sync successful: ${syncResults.created} created, ${syncResults.updated} updated, ${syncResults.skipped} skipped`);
       }
       
     } catch (error) {
       console.error('Sync failed:', error);
       setSyncStatus('error');
       
-      // Retry sync after a delay
+      // Retry sync after a delay if we're still online
       setTimeout(() => {
-        if (navigator.onLine) {
+        if (navigator.onLine && syncStatus !== 'syncing') {
           console.log('Retrying sync after error...');
           syncOfflineData();
         }
@@ -399,10 +432,7 @@ export const useShoppingItems = () => {
         
         if (error) throw error;
       } else {
-        // For offline deletion, we could either:
-        // 1. Remove from offline storage (immediate deletion)
-        // 2. Mark as deleted and sync later (safer)
-        // Using approach 1 for simplicity, but approach 2 would be more robust
+        // For offline deletion, remove from offline storage
         const currentOfflineItems = getOfflineItems();
         const filtered = currentOfflineItems.filter(item => item.id !== id);
         saveOfflineItems(filtered);

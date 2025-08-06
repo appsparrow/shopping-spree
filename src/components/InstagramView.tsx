@@ -1,8 +1,7 @@
-
 import React, { useRef, useState } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
-import { Download, ArrowLeft, ShoppingBag, Heart, MapPin, Eye, EyeOff, ChevronUp } from 'lucide-react';
+import { Download, ArrowLeft, ShoppingBag, Heart, MapPin, Eye, EyeOff, ChevronUp, X } from 'lucide-react';
 import { ShoppingItem } from '@/hooks/useShoppingItems';
 import InstagramCard from './InstagramCard';
 
@@ -43,6 +42,53 @@ const InstagramView: React.FC<InstagramViewProps> = ({
   const [showExchangeRate, setShowExchangeRate] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAllProducts, setShowAllProducts] = useState(false);
+  const [fullScreenItem, setFullScreenItem] = useState<ShoppingItem | null>(null);
+
+  const shareToInstagram = async (item: ShoppingItem) => {
+    // Create a temporary canvas to render the card as an image
+    if (viewRef.current) {
+      try {
+        const html2canvas = await import('html2canvas');
+        const canvas = await html2canvas.default(viewRef.current, {
+          backgroundColor: '#000000',
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+        });
+        
+        canvas.toBlob(async (blob) => {
+          if (blob && navigator.share) {
+            const file = new File([blob], 'shopping-item.png', { type: 'image/png' });
+            try {
+              await navigator.share({
+                title: `Check out this ${item.name}!`,
+                text: `Found this amazing ${item.name} for ${currencySymbol}${item.price_converted.toFixed(0)}`,
+                files: [file]
+              });
+            } catch (error) {
+              console.log('Share cancelled or failed:', error);
+              fallbackShare(blob);
+            }
+          } else {
+            fallbackShare(blob);
+          }
+        }, 'image/png', 1.0);
+      } catch (error) {
+        console.error('Error creating image:', error);
+      }
+    }
+  };
+
+  const fallbackShare = (blob: Blob | null) => {
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'shopping-item.png';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  };
 
   const downloadImage = () => {
     if (viewRef.current) {
@@ -84,6 +130,10 @@ const InstagramView: React.FC<InstagramViewProps> = ({
     }
   };
 
+  const handleCardClick = (item: ShoppingItem) => {
+    setFullScreenItem(item);
+  };
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-4 flex items-center justify-center">
@@ -99,6 +149,34 @@ const InstagramView: React.FC<InstagramViewProps> = ({
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Shopping
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Full screen item view
+  if (fullScreenItem) {
+    return (
+      <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+        <div className="absolute top-4 right-4 z-10">
+          <Button
+            variant="ghost"
+            onClick={() => setFullScreenItem(null)}
+            className="text-white hover:bg-white/20 rounded-full"
+          >
+            <X className="w-6 h-6" />
+          </Button>
+        </div>
+        <div ref={viewRef} className="w-full max-w-md">
+          <InstagramCard
+            item={fullScreenItem}
+            currencySymbol={currencySymbol}
+            onToggleLike={onToggleLike}
+            onTogglePurchased={onTogglePurchased}
+            onShare={shareToInstagram}
+            isUpdating={isUpdating}
+            location={location}
+          />
         </div>
       </div>
     );
@@ -156,10 +234,7 @@ const InstagramView: React.FC<InstagramViewProps> = ({
                 </div>
                 <div 
                   className="absolute inset-0 cursor-pointer"
-                  onClick={() => {
-                    setCurrentIndex(index);
-                    setShowAllProducts(false);
-                  }}
+                  onClick={() => handleCardClick(item)}
                 />
               </div>
             ))}
@@ -241,7 +316,10 @@ const InstagramView: React.FC<InstagramViewProps> = ({
             currencySymbol={currencySymbol}
             onToggleLike={onToggleLike}
             onTogglePurchased={onTogglePurchased}
+            onCardClick={handleCardClick}
+            onShare={shareToInstagram}
             isUpdating={isUpdating}
+            location={location}
           />
         </div>
 
