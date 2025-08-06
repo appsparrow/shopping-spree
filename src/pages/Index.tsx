@@ -11,7 +11,7 @@ import { useTrips } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 
-const Index = () => {
+export default function Index() {
   console.log('Index component rendering...');
   
   const [user, setUser] = useState(null);
@@ -140,6 +140,4 @@ const Index = () => {
       {renderView()}
     </div>
   );
-};
-
-export default Index;
+}
