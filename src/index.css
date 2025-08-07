@@ -11,7 +11,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 264 83% 57%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222.2 84% 4.9%;
@@ -23,8 +23,18 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 264 83% 57%;
     --radius: 0.75rem;
+    
+    /* Shopping Spree Theme */
+    --gradient-primary: linear-gradient(135deg, hsl(264 83% 57%) 0%, hsl(315 75% 65%) 25%, hsl(45 100% 75%) 50%, hsl(0 0% 100%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+    --price-tag: 45 100% 70%;
+    --price-tag-foreground: 45 100% 15%;
+    --discount-badge: 0 100% 60%;
+    --discount-foreground: 0 0% 100%;
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   }
 
   .dark {
@@ -97,4 +107,26 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
+}
+
+/* Glass Morphism Effects */
+.glass-card {
+  background: var(--gradient-glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.gradient-bg {
+  background: var(--gradient-primary);
+}
+
+.price-tag {
+  background: hsl(var(--price-tag));
+  color: hsl(var(--price-tag-foreground));
+}
+
+.discount-badge {
+  background: hsl(var(--discount-badge));
+  color: hsl(var(--discount-foreground));
 }

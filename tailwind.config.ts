@@ -61,12 +61,33 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				'price-tag': {
+					DEFAULT: 'hsl(var(--price-tag))',
+					foreground: 'hsl(var(--price-tag-foreground))'
+				},
+				'discount-badge': {
+					DEFAULT: 'hsl(var(--discount-badge))',
+					foreground: 'hsl(var(--discount-foreground))'
 				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			backgroundImage: {
+				'gradient-primary': 'var(--gradient-primary)',
+				'gradient-glass': 'var(--gradient-glass)'
+			},
+			backdropBlur: {
+				'xs': '2px',
+				'sm': '4px',
+				'md': '8px',
+				'lg': '16px',
+				'xl': '24px',
+				'2xl': '40px',
+				'3xl': '64px',
 			},
 			keyframes: {
 				'accordion-down': {

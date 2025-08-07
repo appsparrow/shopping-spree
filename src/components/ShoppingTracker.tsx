@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import { OCRService } from '@/utils/ocrService';
+import { EnhancedShoppingCard } from './EnhancedShoppingCard';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -49,6 +51,9 @@ const ShoppingTracker = () => {
   const [swipedItemId, setSwipedItemId] = useState<string | null>(null);
   const [showInstagramView, setShowInstagramView] = useState(false);
   const [location, setLocation] = useState('');
+  const [retailPrice, setRetailPrice] = useState('');
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [brandName, setBrandName] = useState('');
 
   // Touch handling for swipe gestures
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -133,15 +138,45 @@ const ShoppingTracker = () => {
     setShowCamera(false);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const result = e.target?.result as string;
         setCapturedPhoto(result);
+        
+        // Try OCR if it's an image
+        if (file.type.startsWith('image/')) {
+          await processImageWithOCR(file);
+        }
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const processImageWithOCR = async (file: File) => {
+    setIsProcessingOCR(true);
+    try {
+      const ocrResult = await OCRService.extractPriceTagInfo(file);
+      console.log('OCR Result:', ocrResult);
+      
+      if (ocrResult.productName) {
+        setNewItemName(ocrResult.productName);
+      }
+      if (ocrResult.brand) {
+        setBrandName(ocrResult.brand);
+      }
+      if (ocrResult.price) {
+        setNewItemPrice(ocrResult.price.toString());
+      }
+      if (ocrResult.originalPrice) {
+        setRetailPrice(ocrResult.originalPrice.toString());
+      }
+    } catch (error) {
+      console.error('OCR processing failed:', error);
+    } finally {
+      setIsProcessingOCR(false);
     }
   };
 
@@ -150,18 +185,23 @@ const ShoppingTracker = () => {
 
     const priceOriginal = parseFloat(newItemPrice);
     const priceConverted = priceOriginal / exchangeRate;
+    const retailPriceNum = retailPrice ? parseFloat(retailPrice) : undefined;
     
     const newItem = {
       name: newItemName.trim(),
+      brand: brandName || undefined,
       photo: capturedPhoto,
       price_original: priceOriginal,
       price_converted: priceConverted,
+      retail_price: retailPriceNum,
       original_currency: fromCurrency,
       converted_currency: toCurrency,
       exchange_rate: exchangeRate,
       liked: false,
       purchased: false,
       timestamp: new Date().toLocaleString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     createItem(newItem);
@@ -169,6 +209,8 @@ const ShoppingTracker = () => {
     // Reset form
     setNewItemName('');
     setNewItemPrice('');
+    setRetailPrice('');
+    setBrandName('');
     setCapturedPhoto('');
   };
 
@@ -205,15 +247,21 @@ const ShoppingTracker = () => {
     setEditPrice('');
   };
 
-  const toggleLike = (item: ShoppingItem) => {
-    console.log('Toggling like for:', item.name, 'Current state:', item.liked);
-    updateItem({ ...item, liked: !item.liked });
+  const toggleLike = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (item) {
+      console.log('Toggling like for:', item.name, 'Current state:', item.liked);
+      updateItem({ ...item, liked: !item.liked });
+    }
   };
 
-  const togglePurchased = (item: ShoppingItem) => {
-    console.log('Toggling purchased for:', item.name, 'Current state:', item.purchased);
-    updateItem({ ...item, purchased: !item.purchased });
-    setSwipedItemId(null);
+  const togglePurchased = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (item) {
+      console.log('Toggling purchased for:', item.name, 'Current state:', item.purchased);
+      updateItem({ ...item, purchased: !item.purchased });
+      setSwipedItemId(null);
+    }
   };
 
   const handleDelete = (itemId: string) => {
@@ -252,15 +300,30 @@ const ShoppingTracker = () => {
         toCurrency={toCurrency}
         location={location}
         onClose={() => setShowInstagramView(false)}
-        onToggleLike={toggleLike}
-        onTogglePurchased={togglePurchased}
+        onToggleLike={(item) => toggleLike(item.id)}
+        onTogglePurchased={(item) => togglePurchased(item.id)}
         isUpdating={isUpdating}
       />
     );
   }
 
+  const shareToInstagram = async (item: ShoppingItem) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${item.name} - ${getToCurrencySymbol()}${item.price_converted?.toFixed(0) || item.price_original.toFixed(0)}`,
+          text: `Found this at ${location || 'outlet mall'} for ${getToCurrencySymbol()}${item.price_converted?.toFixed(0) || item.price_original.toFixed(0)}!`,
+          url: item.photo
+        });
+      } catch (error) {
+        console.error('Error sharing:', error);
+      }
+    }
+  };
+
   return (
-    <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
+    <div className="min-h-screen gradient-bg">
+      <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
 
@@ -419,11 +482,31 @@ const ShoppingTracker = () => {
           />
           
           <Input
+            placeholder="Brand (optional)"
+            value={brandName}
+            onChange={(e) => setBrandName(e.target.value)}
+          />
+          
+          <Input
             type="number"
-            placeholder={`Price in ${fromCurrency}`}
+            placeholder={`Sale price in ${fromCurrency}`}
             value={newItemPrice}
             onChange={(e) => setNewItemPrice(e.target.value)}
           />
+          
+          <Input
+            type="number"
+            placeholder={`Retail price in ${fromCurrency} (optional)`}
+            value={retailPrice}
+            onChange={(e) => setRetailPrice(e.target.value)}
+          />
+          
+          {isProcessingOCR && (
+            <div className="text-sm text-blue-600 flex items-center gap-2">
+              <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              Reading price tag...
+            </div>
+          )}
 
           {!capturedPhoto ? (
             <div className="space-y-2">
@@ -576,7 +659,7 @@ const ShoppingTracker = () => {
                         size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleLike(item);
+                          toggleLike(item.id);
                         }}
                         className="h-10 w-10 rounded-full hover:bg-pink-50 p-0"
                         disabled={isUpdating}
@@ -591,7 +674,7 @@ const ShoppingTracker = () => {
                         size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
-                          togglePurchased(item);
+                          togglePurchased(item.id);
                         }}
                         className="h-10 w-10 rounded-full hover:bg-green-50 p-0"
                         disabled={isUpdating}
@@ -602,35 +685,51 @@ const ShoppingTracker = () => {
                       </Button>
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                 )}
+               </CardContent>
+             </Card>
 
-            {/* Vertical Swipe Actions - Edit and Delete */}
-            {swipedItemId === item.id && (
-              <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center gap-2 pr-2 py-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => startEditing(item)}
-                  className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-10 w-10 rounded-full"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleDelete(item.id)}
-                  className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-10 w-10 rounded-full"
-                  disabled={isDeleting}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+             {/* Vertical Swipe Actions - Edit and Delete */}
+             {swipedItemId === item.id && (
+               <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center gap-2 pr-2 py-2">
+                 <Button
+                   variant="outline"
+                   size="icon"
+                   onClick={() => startEditing(item)}
+                   className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-10 w-10 rounded-full"
+                 >
+                   <Edit3 className="w-4 h-4" />
+                 </Button>
+                 <Button
+                   variant="outline"
+                   size="icon"
+                   onClick={() => handleDelete(item.id)}
+                   className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-10 w-10 rounded-full"
+                   disabled={isDeleting}
+                 >
+                   <Trash2 className="w-4 h-4" />
+                 </Button>
+               </div>
+             )}
+           </div>
+         ))}
+       </div>
+
+       {/* Enhanced Instagram Grid View */}
+       <div className="grid grid-cols-2 gap-3 mt-6">
+         {sortedItems.slice(0, 6).map(item => (
+           <EnhancedShoppingCard
+             key={item.id}
+             item={item}
+             currencySymbol={getToCurrencySymbol()}
+              onToggleLike={(id) => toggleLike(id)}
+              onTogglePurchased={(id) => togglePurchased(id)}
+              onCardClick={() => setShowInstagramView(true)}
+              onShare={shareToInstagram}
+             isUpdating={isUpdating}
+           />
+         ))}
+       </div>
 
       {/* Empty State */}
       {items.length === 0 && !isLoading && (
@@ -649,7 +748,8 @@ const ShoppingTracker = () => {
             <p>Loading items...</p>
           </CardContent>
         </Card>
-      )}
+        )}
+      </div>
     </div>
   );
 };
