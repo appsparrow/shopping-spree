@@ -46,8 +46,8 @@ const AuthScreen = ({ onLogin }: AuthScreenProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
-      <Card className="w-full max-w-md glass-card">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <Card className="w-full max-w-md border-gray-200">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <Plane className="w-12 h-12 text-blue-600" />

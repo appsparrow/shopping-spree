@@ -15,10 +15,16 @@ const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'EUR', symbol: '€', name: 'Euro' },
   { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
+  { code: 'SAR', symbol: '﷼', name: 'Saudi Riyal' },
+  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+  { code: 'KRW', symbol: '₩', name: 'Korean Won' },
+  { code: 'THB', symbol: '฿', name: 'Thai Baht' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
   { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
   { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
   { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
-  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
 ];
 
 const ShoppingTracker = () => {
@@ -322,47 +328,57 @@ const ShoppingTracker = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen bg-white">
       <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
-      {/* PWA Install Prompt */}
-      <PWAInstallPrompt />
+        {/* PWA Install Prompt */}
+        <PWAInstallPrompt />
 
-      {/* Header Section */}
-      <div className="space-y-3">
-        {/* Connection Status */}
-        <Card className={`${isOnline ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-sm">
-              {isOnline ? <Wifi className="w-4 h-4 text-green-600" /> : <WifiOff className="w-4 h-4 text-orange-600" />}
-              <span className={isOnline ? 'text-green-700' : 'text-orange-700'}>
-                {isOnline ? 'Online' : 'Offline - Changes will sync when connected'}
-              </span>
-              {syncStatus === 'syncing' && <span className="text-blue-600">Syncing...</span>}
-              {syncStatus === 'error' && <span className="text-red-600">Sync failed</span>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Location and Post View */}
-        <div className="flex gap-2">
+        {/* Header Section */}
+        <div className="space-y-4">
+          {/* Location Input */}
           <Input
-            placeholder="Shopping location (e.g., Tokyo, Japan)"
+            placeholder="Shopping location (e.g., Dubai Mall, UAE)"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="flex-1"
+            className="w-full"
           />
-          <Button 
-            variant="outline" 
-            onClick={() => setShowInstagramView(true)}
-            className="flex items-center gap-2 whitespace-nowrap"
-          >
-            <Share className="w-4 h-4" />
-            Post View
-          </Button>
+
+          {/* View Toggle and Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              <Button 
+                variant={!showInstagramView ? "default" : "outline"} 
+                onClick={() => setShowInstagramView(false)}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Cards
+              </Button>
+              <Button 
+                variant={showInstagramView ? "default" : "outline"} 
+                onClick={() => setShowInstagramView(true)}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Share className="w-4 h-4" />
+                Post
+              </Button>
+            </div>
+
+            {/* Connection Status Badge */}
+            <div className={`px-2 py-1 rounded-full text-xs flex items-center gap-1 ${
+              isOnline ? 'status-online' : 'status-offline'
+            }`}>
+              {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {isOnline ? 'Online' : 'Offline'}
+              {syncStatus === 'syncing' && <span>Syncing...</span>}
+            </div>
+          </div>
         </div>
 
         {/* Simplified Currency Rate - Single Row */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <Card className="border-gray-200 bg-gray-50/50">
           <CardContent className="p-4">
             {editingRate ? (
               <div className="space-y-3">
@@ -417,8 +433,8 @@ const ShoppingTracker = () => {
             ) : (
               <div className="flex items-center justify-between">
                 <div className="text-center flex-1">
-                  <p className="text-lg font-bold text-blue-600">
-                    ¥{exchangeRate.toFixed(0)} = ${1.00}
+                  <p className="text-lg font-bold text-gray-800">
+                    {getFromCurrencySymbol()}{exchangeRate.toFixed(0)} = {getToCurrencySymbol()}1.00
                   </p>
                 </div>
                 <Button 
@@ -434,320 +450,235 @@ const ShoppingTracker = () => {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      {/* Summary Stats */}
-      {items.length > 0 && (
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-            <CardContent className="p-4 text-center">
-              <p className="text-sm font-medium text-gray-700">Total Value</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {getToCurrencySymbol()}{getTotalConverted().toFixed(0)}
-              </p>
-              <p className="text-sm text-gray-500">
-                {getFromCurrencySymbol()}{getTotalOriginal().toFixed(0)}
-              </p>
-              <p className="text-xs text-gray-500">{items.length} items</p>
-            </CardContent>
-          </Card>
+        {/* Summary Stats */}
+        {items.length > 0 && (
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="border-gray-200 bg-blue-50/30">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm font-medium text-gray-700">Total Value</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {getToCurrencySymbol()}{getTotalConverted().toFixed(0)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {getFromCurrencySymbol()}{getTotalOriginal().toFixed(0)}
+                </p>
+                <p className="text-xs text-gray-500">{items.length} items</p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
-            <CardContent className="p-4 text-center">
-              <p className="text-sm font-medium text-gray-700">Actually Spent</p>
-              <p className="text-2xl font-bold text-green-600">
-                {getToCurrencySymbol()}{getPurchasedTotal().toFixed(0)}
-              </p>
-              <p className="text-sm text-gray-500">
-                {getPurchasedCount()} of {items.length} bought
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            <Card className="border-gray-200 bg-green-50/30">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm font-medium text-gray-700">Actually Spent</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {getToCurrencySymbol()}{getPurchasedTotal().toFixed(0)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {getPurchasedCount()} of {items.length} bought
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-      {/* Add New Item */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add Item
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Input
-            placeholder="Product name"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-          />
-          
-          <Input
-            placeholder="Brand (optional)"
-            value={brandName}
-            onChange={(e) => setBrandName(e.target.value)}
-          />
-          
-          <Input
-            type="number"
-            placeholder={`Sale price in ${fromCurrency}`}
-            value={newItemPrice}
-            onChange={(e) => setNewItemPrice(e.target.value)}
-          />
-          
-          <Input
-            type="number"
-            placeholder={`Retail price in ${fromCurrency} (optional)`}
-            value={retailPrice}
-            onChange={(e) => setRetailPrice(e.target.value)}
-          />
-          
-          {isProcessingOCR && (
-            <div className="text-sm text-blue-600 flex items-center gap-2">
-              <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-              Reading price tag...
-            </div>
-          )}
+        {/* Add New Item */}
+        <Card className="border-gray-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              Add Item
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input
+              placeholder="Product name"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+            />
+            
+            <Input
+              placeholder="Brand (optional)"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+            />
+            
+            <Input
+              type="number"
+              placeholder={`Sale price in ${fromCurrency}`}
+              value={newItemPrice}
+              onChange={(e) => setNewItemPrice(e.target.value)}
+            />
+            
+            <Input
+              type="number"
+              placeholder={`Retail price in ${fromCurrency} (optional)`}
+              value={retailPrice}
+              onChange={(e) => setRetailPrice(e.target.value)}
+            />
+            
+            {isProcessingOCR && (
+              <div className="text-sm text-blue-600 flex items-center gap-2">
+                <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                Reading price tag...
+              </div>
+            )}
 
-          {!capturedPhoto ? (
-            <div className="space-y-2">
-              <Button onClick={startCamera} className="w-full">
+            <div className="flex gap-2">
+              <Button onClick={startCamera} className="flex-1" size="sm">
                 <Camera className="w-4 h-4 mr-2" />
-                Take Photo
+                Camera
               </Button>
               <Button 
+                onClick={() => fileInputRef.current?.click()} 
                 variant="outline" 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full"
+                className="flex-1"
+                size="sm"
               >
-                Upload from Gallery
+                Upload
               </Button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <img 
-                src={capturedPhoto} 
-                alt="Product" 
-                className="w-full h-40 object-cover rounded-lg border-2 border-gray-200"
-              />
-              <div className="flex gap-2">
-                <Button onClick={() => setCapturedPhoto('')} variant="outline" className="flex-1">
-                  Retake
-                </Button>
+
+            {capturedPhoto && (
+              <div className="space-y-3">
+                <img 
+                  src={capturedPhoto} 
+                  alt="Captured item" 
+                  className="w-full h-32 object-cover rounded border"
+                />
                 <Button 
                   onClick={addItem} 
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                  disabled={isCreating}
+                  disabled={!newItemName.trim() || !newItemPrice || !capturedPhoto || isCreating}
+                  className="w-full"
+                  size="sm"
                 >
                   {isCreating ? 'Adding...' : 'Add Item'}
                 </Button>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Camera View */}
-      {showCamera && (
-        <Card>
-          <CardContent className="p-4">
+        {/* Show camera view */}
+        {showCamera && (
+          <Card className="relative border-gray-200">
             <video
               ref={videoRef}
               autoPlay
               playsInline
-              className="w-full rounded-lg bg-gray-100"
+              className="w-full h-64 object-cover rounded-lg"
             />
-            <div className="flex gap-2 mt-3">
-              <Button onClick={capturePhoto} className="flex-1">
-                📸 Capture
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4">
+              <Button onClick={capturePhoto} size="lg">
+                <Camera className="w-6 h-6" />
               </Button>
-              <Button onClick={stopCamera} variant="outline" className="flex-1">
-                Cancel
+              <Button onClick={stopCamera} variant="outline" size="lg">
+                <X className="w-6 h-6" />
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </Card>
+        )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileUpload}
-        className="hidden"
-      />
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
+        <canvas ref={canvasRef} className="hidden" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
 
-      {/* Items List with improved vertical swipe buttons */}
-      <div className="space-y-3">
-        {sortedItems.map(item => (
-          <div key={item.id} className="relative">
-            <Card 
-              className={`hover:shadow-md transition-all duration-200 overflow-hidden ${
-                item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
-              } ${item.purchased ? 'bg-green-50 border-green-300' : ''} ${
-                swipedItemId === item.id ? 'transform -translate-x-20' : ''
-              }`}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={() => onTouchEnd(item.id)}
-            >
-              <CardContent className="p-4">
+        {/* Items List */}
+        <div className="space-y-3">
+          {sortedItems.length === 0 ? (
+            <Card className="text-center p-8 border-gray-200">
+              <ShoppingBag className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500">No items added yet</p>
+              <p className="text-sm text-gray-400">Add your first shopping item above</p>
+            </Card>
+          ) : (
+            sortedItems.map((item) => (
+              <div
+                key={item.id}
+                className="relative"
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={() => onTouchEnd(item.id)}
+              >
                 {editingItem?.id === item.id ? (
-                  <div className="space-y-3">
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Product name"
-                    />
-                    <Input
-                      type="number"
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(e.target.value)}
-                      placeholder={`Price in ${fromCurrency}`}
-                    />
-                    <div className="flex gap-2">
-                      <Button onClick={saveEdit} size="sm" className="flex-1" disabled={isUpdating}>
-                        <Check className="w-3 h-3 mr-1" />
-                        {isUpdating ? 'Saving...' : 'Save'}
-                      </Button>
-                      <Button onClick={cancelEdit} variant="outline" size="sm" className="flex-1">
-                        <X className="w-3 h-3 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-4">
-                    <div className="relative flex-shrink-0">
-                      <img 
-                        src={item.photo} 
-                        alt={item.name}
-                        className="w-24 h-24 object-cover rounded-lg border"
+                  <Card className="border-gray-200">
+                    <CardContent className="p-4 space-y-3">
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Item name"
                       />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="pr-20">
-                        <h3 className="font-semibold text-gray-900 text-base mb-1 line-clamp-2">
-                          {item.name}
-                          {item.purchased && (
-                            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ✓ Bought
-                            </span>
-                          )}
-                        </h3>
-                        
-                        <div className="mb-2">
-                          <p className={`text-xl font-bold ${
-                            item.purchased ? 'text-green-600' : 'text-blue-600'
-                          }`}>
-                            {getToCurrencySymbol()}{item.price_converted.toFixed(0)}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
-                          </p>
-                        </div>
-                        
-                        <p className="text-xs text-gray-400">{formatShortDate(item.created_at)}</p>
+                      <Input
+                        type="number"
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value)}
+                        placeholder="Price"
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={saveEdit} size="sm" className="flex-1">
+                          <Check className="w-4 h-4 mr-2" />
+                          Save
+                        </Button>
+                        <Button onClick={cancelEdit} variant="outline" size="sm" className="flex-1">
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
                       </div>
-                    </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    <EnhancedShoppingCard
+                      item={item}
+                      currencySymbol={getToCurrencySymbol()}
+                      onToggleLike={toggleLike}
+                      onTogglePurchased={togglePurchased}
+                      onCardClick={() => {}} // No action needed
+                      onShare={shareToInstagram}
+                      isUpdating={isUpdating}
+                    />
+                    
+                    {/* Swipe actions overlay */}
+                    {swipedItemId === item.id && (
+                      <div className="absolute inset-y-0 right-0 flex items-center bg-red-500 rounded-r-lg">
+                        <div className="flex items-center px-4 space-x-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditing(item)}
+                            className="text-white hover:bg-white/20"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(item.id)}
+                            className="text-white hover:bg-white/20"
+                            disabled={isDeleting}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))
+          )}
+        </div>
 
-                    {/* Vertical Action Buttons on the Right */}
-                    <div className="absolute right-3 top-3 flex flex-col gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLike(item.id);
-                        }}
-                        className="h-10 w-10 rounded-full hover:bg-pink-50 p-0"
-                        disabled={isUpdating}
-                      >
-                        <Heart 
-                          className={`w-6 h-6 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
-                        />
-                      </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePurchased(item.id);
-                        }}
-                        className="h-10 w-10 rounded-full hover:bg-green-50 p-0"
-                        disabled={isUpdating}
-                      >
-                        <ShoppingBag 
-                          className={`w-6 h-6 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-400'}`} 
-                        />
-                      </Button>
-                    </div>
-                  </div>
-                 )}
-               </CardContent>
-             </Card>
-
-             {/* Vertical Swipe Actions - Edit and Delete */}
-             {swipedItemId === item.id && (
-               <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center gap-2 pr-2 py-2">
-                 <Button
-                   variant="outline"
-                   size="icon"
-                   onClick={() => startEditing(item)}
-                   className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-10 w-10 rounded-full"
-                 >
-                   <Edit3 className="w-4 h-4" />
-                 </Button>
-                 <Button
-                   variant="outline"
-                   size="icon"
-                   onClick={() => handleDelete(item.id)}
-                   className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-10 w-10 rounded-full"
-                   disabled={isDeleting}
-                 >
-                   <Trash2 className="w-4 h-4" />
-                 </Button>
-               </div>
-             )}
-           </div>
-         ))}
-       </div>
-
-       {/* Enhanced Instagram Grid View */}
-       <div className="grid grid-cols-2 gap-3 mt-6">
-         {sortedItems.slice(0, 6).map(item => (
-           <EnhancedShoppingCard
-             key={item.id}
-             item={item}
-             currencySymbol={getToCurrencySymbol()}
-              onToggleLike={(id) => toggleLike(id)}
-              onTogglePurchased={(id) => togglePurchased(id)}
-              onCardClick={() => setShowInstagramView(true)}
-              onShare={shareToInstagram}
-             isUpdating={isUpdating}
-           />
-         ))}
-       </div>
-
-      {/* Empty State */}
-      {items.length === 0 && !isLoading && (
-        <Card className="border-dashed border-2 border-gray-200">
-          <CardContent className="p-8 text-center text-gray-500">
-            <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium mb-2">No items yet</h3>
-            <p className="text-sm">Start tracking your shopping by taking a photo and adding your first purchase!</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {isLoading && (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-500">
-            <p>Loading items...</p>
-          </CardContent>
-        </Card>
+        {isLoading && (
+          <Card className="border-gray-200">
+            <CardContent className="p-8 text-center text-gray-500">
+              <p>Loading items...</p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

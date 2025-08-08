@@ -57,7 +57,7 @@ export const EnhancedShoppingCard: React.FC<EnhancedShoppingCardProps> = ({
 
   return (
     <Card 
-      className="glass-card relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 border-0"
+      className="glass-card relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105"
       onClick={() => onCardClick(item)}
     >
       <div className="relative aspect-square">
@@ -87,7 +87,7 @@ export const EnhancedShoppingCard: React.FC<EnhancedShoppingCardProps> = ({
           <Button
             size="icon"
             variant="ghost"
-            className="glass-card w-8 h-8 rounded-full border-0"
+            className="glass-card w-8 h-8 rounded-full"
             onClick={(e) => {
               e.stopPropagation();
               onToggleLike(item.id);
@@ -101,7 +101,7 @@ export const EnhancedShoppingCard: React.FC<EnhancedShoppingCardProps> = ({
           <Button
             size="icon"
             variant="ghost"
-            className="glass-card w-8 h-8 rounded-full border-0"
+            className="glass-card w-8 h-8 rounded-full"
             onClick={(e) => {
               e.stopPropagation();
               onTogglePurchased(item.id);
@@ -115,7 +115,7 @@ export const EnhancedShoppingCard: React.FC<EnhancedShoppingCardProps> = ({
           <Button
             size="icon"
             variant="ghost"
-            className="glass-card w-8 h-8 rounded-full border-0"
+            className="glass-card w-8 h-8 rounded-full"
             onClick={(e) => {
               e.stopPropagation();
               onShare(item);
