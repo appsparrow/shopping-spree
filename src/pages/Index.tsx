@@ -104,7 +104,7 @@ const Index: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-primary">
       {renderView()}
     </div>
   );
