@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { Plus, Trash2, Calendar } from 'lucide-react';
+import { Plus, Trash2, Calendar, MapPin, Users, Sparkles } from 'lucide-react';
 import { useTrips } from '@/hooks/useTrips';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -76,6 +76,51 @@ const TripsList = ({ onSelectTrip, onCreateTrip }: TripsListProps) => {
                   <p className="text-sm text-gray-500 mt-2">
                     {trip.number_of_people} {trip.number_of_people === 1 ? 'person' : 'people'}
                   </p>
+                  
+                  {/* Show preferences if they exist */}
+                  {trip.preferences && (
+                    <div className="mt-3 space-y-2">
+                      {trip.preferences.interests && trip.preferences.interests.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {trip.preferences.interests.slice(0, 3).map((interest: string) => (
+                            <Badge key={interest} variant="secondary" className="text-xs">
+                              {interest}
+                            </Badge>
+                          ))}
+                          {trip.preferences.interests.length > 3 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{trip.preferences.interests.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      
+                      {trip.preferences.kidAges && trip.preferences.kidAges.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {trip.preferences.kidAges.map((age: string) => (
+                            <Badge key={age} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                              {age}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {trip.preferences.cities && trip.preferences.cities.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {trip.preferences.cities.slice(0, 2).map((city: any, index: number) => (
+                            <Badge key={index} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                              {city.name} ({city.days}d)
+                            </Badge>
+                          ))}
+                          {trip.preferences.cities.length > 2 && (
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                              +{trip.preferences.cities.length - 2} more cities
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {trip.start_date && (

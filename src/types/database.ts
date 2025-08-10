@@ -61,6 +61,7 @@ export interface Database {
           end_date: string;
           base_location: string | null;
           number_of_people: number;
+          preferences: any;
           created_at: string;
           updated_at: string;
         };
@@ -72,6 +73,7 @@ export interface Database {
           end_date: string;
           base_location?: string | null;
           number_of_people?: number;
+          preferences?: any;
           created_at?: string;
           updated_at?: string;
         };
@@ -83,6 +85,7 @@ export interface Database {
           end_date?: string;
           base_location?: string | null;
           number_of_people?: number;
+          preferences?: any;
           created_at?: string;
           updated_at?: string;
         };

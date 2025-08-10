@@ -14,7 +14,7 @@ const Index: React.FC = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list'); // list, create, view, setup, shopping
-  const { currentTrip } = useTrips();
+  const { currentTrip, setCurrentTrip, refetch } = useTrips();
 
   useEffect(() => {
     const getSession = async () => {
@@ -43,7 +43,16 @@ const Index: React.FC = () => {
   const renderView = () => {
     switch (view) {
       case 'create':
-        return <CreateTrip onBack={() => setView('list')} onCreated={() => setView('view')} />;
+        return (
+          <CreateTrip 
+            onBack={() => setView('list')} 
+            onCreated={(tripId) => {
+              setCurrentTrip(tripId);
+              refetch();
+              setView('view');
+            }} 
+          />
+        );
       case 'view':
         return currentTrip ? (
           <TripView 
@@ -104,7 +113,8 @@ const Index: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-primary">
+    <div className="min-h-screen relative">
+      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none" />
       {renderView()}
     </div>
   );

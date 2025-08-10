@@ -1,14 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { OCRService } from '@/utils/ocrService';
 import { EnhancedShoppingCard } from './EnhancedShoppingCard';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, ShoppingCart, Wifi, WifiOff, Check, X, Share, MapPin, Download } from 'lucide-react';
+import { Camera, Plus, Trash2, ShoppingBag, Edit3, Heart, Wifi, WifiOff, Check, X, Share2 } from 'lucide-react';
 import { useShoppingItems, ShoppingItem } from '@/hooks/useShoppingItems';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import InstagramView from './InstagramView';
 import PWAInstallPrompt from './PWAInstallPrompt';
+import { Badge } from './ui/badge';
 
 const CURRENCIES = [
   { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
@@ -38,29 +37,26 @@ const ShoppingTracker = () => {
 
   const [fromCurrency, setFromCurrency] = useState('JPY');
   const [toCurrency, setToCurrency] = useState('USD');
-  const [exchangeRate, setExchangeRate] = useState<number>(150);
+  const [exchangeRate, setExchangeRate] = useState<number>(144);
   const [customRate, setCustomRate] = useState<string>('');
   const [editingRate, setEditingRate] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [capturedPhoto, setCapturedPhoto] = useState<string>('');
-  const [showCamera, setShowCamera] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [swipedItemId, setSwipedItemId] = useState<string | null>(null);
-  const [showInstagramView, setShowInstagramView] = useState(false);
   const [location, setLocation] = useState('');
   const [retailPrice, setRetailPrice] = useState('');
-  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [isProcessingOCR] = useState(false);
   const [brandName, setBrandName] = useState('');
+  const [itemLayout, setItemLayout] = useState<'list' | 'grid'>('list');
 
   // Touch handling for swipe gestures
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const minSwipeDistance = 50;
@@ -101,43 +97,6 @@ const ShoppingTracker = () => {
     }
   };
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setShowCamera(true);
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      fileInputRef.current?.click();
-    }
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext('2d');
-      if (context) {
-        canvasRef.current.width = videoRef.current.videoWidth;
-        canvasRef.current.height = videoRef.current.videoHeight;
-        context.drawImage(videoRef.current, 0, 0);
-        const photoData = canvasRef.current.toDataURL('image/jpeg', 0.8);
-        setCapturedPhoto(photoData);
-        stopCamera();
-      }
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
-    }
-    setShowCamera(false);
-  };
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -145,38 +104,8 @@ const ShoppingTracker = () => {
       reader.onload = async (e) => {
         const result = e.target?.result as string;
         setCapturedPhoto(result);
-        
-        // Try OCR if it's an image
-        if (file.type.startsWith('image/')) {
-          await processImageWithOCR(file);
-        }
       };
       reader.readAsDataURL(file);
-    }
-  };
-
-  const processImageWithOCR = async (file: File) => {
-    setIsProcessingOCR(true);
-    try {
-      const ocrResult = await OCRService.extractPriceTagInfo(file);
-      console.log('OCR Result:', ocrResult);
-      
-      if (ocrResult.productName) {
-        setNewItemName(ocrResult.productName);
-      }
-      if (ocrResult.brand) {
-        setBrandName(ocrResult.brand);
-      }
-      if (ocrResult.price) {
-        setNewItemPrice(ocrResult.price.toString());
-      }
-      if (ocrResult.originalPrice) {
-        setRetailPrice(ocrResult.originalPrice.toString());
-      }
-    } catch (error) {
-      console.error('OCR processing failed:', error);
-    } finally {
-      setIsProcessingOCR(false);
     }
   };
 
@@ -185,23 +114,18 @@ const ShoppingTracker = () => {
 
     const priceOriginal = parseFloat(newItemPrice);
     const priceConverted = priceOriginal / exchangeRate;
-    const retailPriceNum = retailPrice ? parseFloat(retailPrice) : undefined;
     
     const newItem = {
       name: newItemName.trim(),
-      brand: brandName || undefined,
       photo: capturedPhoto,
       price_original: priceOriginal,
       price_converted: priceConverted,
-      retail_price: retailPriceNum,
       original_currency: fromCurrency,
       converted_currency: toCurrency,
       exchange_rate: exchangeRate,
       liked: false,
       purchased: false,
-      timestamp: new Date().toLocaleString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
     };
 
     createItem(newItem);
@@ -286,80 +210,122 @@ const ShoppingTracker = () => {
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
 
-  if (showInstagramView) {
-    return (
-      <InstagramView 
-        items={sortedItems}
-        totalSpent={getPurchasedTotal()}
-        totalItems={getTotalConverted()}
-        purchasedCount={getPurchasedCount()}
-        totalCount={items.length}
-        currencySymbol={getToCurrencySymbol()}
-        exchangeRate={exchangeRate}
-        fromCurrency={fromCurrency}
-        toCurrency={toCurrency}
-        location={location}
-        onClose={() => setShowInstagramView(false)}
-        onToggleLike={(item) => toggleLike(item.id)}
-        onTogglePurchased={(item) => togglePurchased(item.id)}
-        isUpdating={isUpdating}
-      />
-    );
-  }
+  // Removed InstagramView "Post View" per request
 
   const shareToInstagram = async (item: ShoppingItem) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${item.name} - ${getToCurrencySymbol()}${item.price_converted?.toFixed(0) || item.price_original.toFixed(0)}`,
-          text: `Found this at ${location || 'outlet mall'} for ${getToCurrencySymbol()}${item.price_converted?.toFixed(0) || item.price_original.toFixed(0)}!`,
-          url: item.photo
+    try {
+      const size = 1080; // Square for Instagram
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Background radial gradient approximating provided artwork
+      const gradient = ctx.createRadialGradient(
+        size * 0.5,
+        size * 0.7,
+        size * 0.1,
+        size * 0.5,
+        size * 0.5,
+        size * 0.8
+      );
+      gradient.addColorStop(0, '#ff7a00'); // orange center
+      gradient.addColorStop(0.45, '#ff6aa6'); // pink
+      gradient.addColorStop(0.75, '#6da3ff'); // blue
+      gradient.addColorStop(1, '#ffffff'); // white edge
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw item image if present
+      if (item.photo) {
+        await new Promise<void>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            // cover fit
+            const iw = img.width;
+            const ih = img.height;
+            const scale = Math.max(size / iw, size / ih);
+            const dw = iw * scale;
+            const dh = ih * scale;
+            const dx = (size - dw) / 2;
+            const dy = (size - dh) / 2;
+            ctx.globalAlpha = 0.9;
+            ctx.drawImage(img, dx, dy, dw, dh);
+            ctx.globalAlpha = 1;
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = item.photo;
         });
-      } catch (error) {
-        console.error('Error sharing:', error);
       }
+
+      // Overlay panel
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      const panelHeight = 200;
+      ctx.fillRect(0, size - panelHeight, size, panelHeight);
+
+      // Text styles
+      ctx.fillStyle = '#111827';
+      ctx.font = 'bold 40px system-ui, -apple-system, Segoe UI, Roboto';
+      ctx.textBaseline = 'top';
+      ctx.fillText(item.name?.slice(0, 30) || 'Shopping Find', 40, size - panelHeight + 24);
+
+      ctx.font = '500 30px system-ui, -apple-system, Segoe UI, Roboto';
+      const rateText = `${getFromCurrencySymbol()}${exchangeRate.toFixed(0)} = ${getToCurrencySymbol()}1`;
+      const dateText = new Date(item.created_at || Date.now()).toLocaleDateString();
+      const locationText = location || 'My Trip';
+      ctx.fillText(`${locationText} • ${dateText}`, 40, size - panelHeight + 80);
+
+      ctx.font = '600 36px system-ui, -apple-system, Segoe UI, Roboto';
+      ctx.fillText(rateText, 40, size - panelHeight + 130);
+
+      const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      if (!blob) return;
+      const file = new File([blob], 'shopping-share.jpg', { type: 'image/jpeg' });
+
+      // Share via Web Share API with files (mobile)
+      // @ts-ignore
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        // @ts-ignore
+        await navigator.share({ files: [file], text: `${item.name}` });
+      } else {
+        // Fallback: trigger download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'shopping-share.jpg';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error preparing Instagram share:', error);
     }
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <div className="max-w-md mx-auto p-4 space-y-4 pb-20">
+    <div className="min-h-screen relative">
+      {/* Online/Offline tiny badge at top-right */}
+      <div className="fixed top-3 right-3 z-50">
+        <Badge className={`${isOnline ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-orange-100 text-orange-700 border border-orange-200'} text-xs px-2 py-0.5`}> 
+          <span className={`inline-block w-2 h-2 rounded-full mr-1 ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></span>
+          {isOnline ? 'Online' : 'Offline'}
+        </Badge>
+      </div>
+      <div className="max-w-md mx-auto p-4 space-y-4 pb-20 relative z-10">
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
 
       {/* Header Section */}
       <div className="space-y-3">
-        {/* Connection Status */}
-        <Card className={`${isOnline ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-sm">
-              {isOnline ? <Wifi className="w-4 h-4 text-green-600" /> : <WifiOff className="w-4 h-4 text-orange-600" />}
-              <span className={isOnline ? 'text-green-700' : 'text-orange-700'}>
-                {isOnline ? 'Online' : 'Offline - Changes will sync when connected'}
-              </span>
-              {syncStatus === 'syncing' && <span className="text-blue-600">Syncing...</span>}
-              {syncStatus === 'error' && <span className="text-red-600">Sync failed</span>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Location and Post View */}
-        <div className="flex gap-2">
-          <Input
-            placeholder="Shopping location (e.g., Tokyo, Japan)"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="flex-1"
-          />
-          <Button 
-            variant="outline" 
-            onClick={() => setShowInstagramView(true)}
-            className="flex items-center gap-2 whitespace-nowrap"
-          >
-            <Share className="w-4 h-4" />
-            Post View
-          </Button>
-        </div>
+        {/* Title input styled as title (click to edit) */}
+        <Input
+          placeholder="Title (e.g., Tokyo Outlet Finds)"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          className="border-transparent focus:border-transparent focus:ring-0 text-2xl font-bold px-0"
+        />
 
         {/* Simplified Currency Rate - Single Row */}
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
@@ -501,72 +467,48 @@ const ShoppingTracker = () => {
             onChange={(e) => setRetailPrice(e.target.value)}
           />
           
-          {isProcessingOCR && (
-            <div className="text-sm text-blue-600 flex items-center gap-2">
-              <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-              Reading price tag...
-            </div>
-          )}
-
-          {!capturedPhoto ? (
-            <div className="space-y-2">
-              <Button onClick={startCamera} className="w-full">
-                <Camera className="w-4 h-4 mr-2" />
-                Take Photo
-              </Button>
+          {/* Optional photo upload */}
+          <div className="space-y-2">
+            {capturedPhoto && (
+              <img src={capturedPhoto} alt="Product" className="w-full h-40 object-cover rounded-lg border-2 border-gray-200" />
+            )}
+            <div className="flex gap-2">
               <Button 
                 variant="outline" 
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full"
+                className="flex-1"
               >
-                Upload from Gallery
+                Upload Photo
+              </Button>
+              <Button 
+                onClick={addItem} 
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={isCreating || !capturedPhoto}
+              >
+                {isCreating ? 'Adding...' : 'Add Item'}
               </Button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <img 
-                src={capturedPhoto} 
-                alt="Product" 
-                className="w-full h-40 object-cover rounded-lg border-2 border-gray-200"
-              />
-              <div className="flex gap-2">
-                <Button onClick={() => setCapturedPhoto('')} variant="outline" className="flex-1">
-                  Retake
-                </Button>
-                <Button 
-                  onClick={addItem} 
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                  disabled={isCreating}
-                >
-                  {isCreating ? 'Adding...' : 'Add Item'}
-                </Button>
-              </div>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Camera View */}
-      {showCamera && (
-        <Card>
-          <CardContent className="p-4">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="w-full rounded-lg bg-gray-100"
-            />
-            <div className="flex gap-2 mt-3">
-              <Button onClick={capturePhoto} className="flex-1">
-                📸 Capture
-              </Button>
-              <Button onClick={stopCamera} variant="outline" className="flex-1">
-                Cancel
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* View switcher: List vs Grid */}
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant={itemLayout === 'list' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setItemLayout('list')}
+        >
+          List
+        </Button>
+        <Button
+          variant={itemLayout === 'grid' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setItemLayout('grid')}
+        >
+          Grid
+        </Button>
+      </div>
 
       <input
         ref={fileInputRef}
@@ -575,161 +517,173 @@ const ShoppingTracker = () => {
         onChange={handleFileUpload}
         className="hidden"
       />
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <canvas style={{ display: 'none' }} />
 
-      {/* Items List with improved vertical swipe buttons */}
-      <div className="space-y-3">
-        {sortedItems.map(item => (
-          <div key={item.id} className="relative">
-            <Card 
-              className={`hover:shadow-md transition-all duration-200 overflow-hidden ${
-                item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
-              } ${item.purchased ? 'bg-green-50 border-green-300' : ''} ${
-                swipedItemId === item.id ? 'transform -translate-x-20' : ''
-              }`}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={() => onTouchEnd(item.id)}
-            >
-              <CardContent className="p-4">
-                {editingItem?.id === item.id ? (
-                  <div className="space-y-3">
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Product name"
-                    />
-                    <Input
-                      type="number"
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(e.target.value)}
-                      placeholder={`Price in ${fromCurrency}`}
-                    />
-                    <div className="flex gap-2">
-                      <Button onClick={saveEdit} size="sm" className="flex-1" disabled={isUpdating}>
-                        <Check className="w-3 h-3 mr-1" />
-                        {isUpdating ? 'Saving...' : 'Save'}
-                      </Button>
-                      <Button onClick={cancelEdit} variant="outline" size="sm" className="flex-1">
-                        <X className="w-3 h-3 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-4">
-                    <div className="relative flex-shrink-0">
-                      <img 
-                        src={item.photo} 
-                        alt={item.name}
-                        className="w-24 h-24 object-cover rounded-lg border"
+      {/* Items rendering with switcher */}
+      {itemLayout === 'list' ? (
+        <div className="space-y-3">
+          {sortedItems.map(item => (
+            <div key={item.id} className="relative">
+              <Card 
+                className={`hover:shadow-md transition-all duration-200 overflow-hidden ${
+                  item.liked ? 'ring-2 ring-pink-200 bg-pink-50' : ''
+                } ${item.purchased ? 'bg-green-50 border-green-300' : ''} ${
+                  swipedItemId === item.id ? 'transform -translate-x-20' : ''
+                }`}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={() => onTouchEnd(item.id)}
+              >
+                <CardContent className="p-4">
+                  {editingItem?.id === item.id ? (
+                    <div className="space-y-3">
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Product name"
                       />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="pr-20">
-                        <h3 className="font-semibold text-gray-900 text-base mb-1 line-clamp-2">
-                          {item.name}
-                          {item.purchased && (
-                            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ✓ Bought
-                            </span>
-                          )}
-                        </h3>
-                        
-                        <div className="mb-2">
-                          <p className={`text-xl font-bold ${
-                            item.purchased ? 'text-green-600' : 'text-blue-600'
-                          }`}>
-                            {getToCurrencySymbol()}{item.price_converted.toFixed(0)}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
-                          </p>
-                        </div>
-                        
-                        <p className="text-xs text-gray-400">{formatShortDate(item.created_at)}</p>
+                      <Input
+                        type="number"
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value)}
+                        placeholder={`Price in ${fromCurrency}`}
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={saveEdit} size="sm" className="flex-1" disabled={isUpdating}>
+                          <Check className="w-3 h-3 mr-1" />
+                          {isUpdating ? 'Saving...' : 'Save'}
+                        </Button>
+                        <Button onClick={cancelEdit} variant="outline" size="sm" className="flex-1">
+                          <X className="w-3 h-3 mr-1" />
+                          Cancel
+                        </Button>
                       </div>
                     </div>
-
-                    {/* Vertical Action Buttons on the Right */}
-                    <div className="absolute right-3 top-3 flex flex-col gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLike(item.id);
-                        }}
-                        className="h-10 w-10 rounded-full hover:bg-pink-50 p-0"
-                        disabled={isUpdating}
-                      >
-                        <Heart 
-                          className={`w-6 h-6 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
+                  ) : (
+                    <div className="flex gap-4">
+                      <div className="relative flex-shrink-0">
+                        <img 
+                          src={item.photo} 
+                          alt={item.name}
+                          className="w-24 h-24 object-cover rounded-lg border"
                         />
-                      </Button>
+                      </div>
                       
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePurchased(item.id);
-                        }}
-                        className="h-10 w-10 rounded-full hover:bg-green-50 p-0"
-                        disabled={isUpdating}
-                      >
-                        <ShoppingBag 
-                          className={`w-6 h-6 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-400'}`} 
-                        />
-                      </Button>
+                      <div className="flex-1 min-w-0">
+                        <div className="pr-20">
+                          <h3 className="font-semibold text-gray-900 text-base mb-1 line-clamp-2">
+                            {item.name}
+                            {item.purchased && (
+                              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✓ Bought
+                              </span>
+                            )}
+                          </h3>
+                          
+                          <div className="mb-2">
+                            <p className={`text-xl font-bold ${
+                              item.purchased ? 'text-green-600' : 'text-blue-600'
+                            }`}>
+                              {getToCurrencySymbol()}{item.price_converted.toFixed(0)}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {getFromCurrencySymbol()}{item.price_original.toFixed(0)}
+                            </p>
+                          </div>
+                          
+                          <p className="text-xs text-gray-400">{formatShortDate(item.created_at)}</p>
+                        </div>
+                      </div>
+
+                      {/* Vertical Action Buttons on the Right */}
+                      <div className="absolute right-3 top-3 flex flex-col gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleLike(item.id);
+                          }}
+                          className="h-10 w-10 rounded-full hover:bg-pink-50 p-0"
+                        // keep interactive for instant UX even if a mutation is pending
+                        >
+                          <Heart 
+                            className={`w-6 h-6 ${item.liked ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} 
+                          />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePurchased(item.id);
+                          }}
+                          className="h-10 w-10 rounded-full hover:bg-green-50 p-0"
+                          // keep interactive for instant UX even if a mutation is pending
+                        >
+                          <ShoppingBag 
+                            className={`w-6 h-6 ${item.purchased ? 'fill-green-500 text-green-500' : 'text-gray-400'}`} 
+                          />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            shareToInstagram(item);
+                          }}
+                          className="h-10 w-10 rounded-full hover:bg-blue-50 p-0"
+                        >
+                          <Share2 className="w-6 h-6 text-blue-500" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                 )}
-               </CardContent>
-             </Card>
+                   )}
+                 </CardContent>
+               </Card>
 
-             {/* Vertical Swipe Actions - Edit and Delete */}
-             {swipedItemId === item.id && (
-               <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center gap-2 pr-2 py-2">
-                 <Button
-                   variant="outline"
-                   size="icon"
-                   onClick={() => startEditing(item)}
-                   className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-10 w-10 rounded-full"
-                 >
-                   <Edit3 className="w-4 h-4" />
-                 </Button>
-                 <Button
-                   variant="outline"
-                   size="icon"
-                   onClick={() => handleDelete(item.id)}
-                   className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-10 w-10 rounded-full"
-                   disabled={isDeleting}
-                 >
-                   <Trash2 className="w-4 h-4" />
-                 </Button>
-               </div>
-             )}
-           </div>
-         ))}
-       </div>
-
-       {/* Enhanced Instagram Grid View */}
-       <div className="grid grid-cols-2 gap-3 mt-6">
-         {sortedItems.slice(0, 6).map(item => (
-           <EnhancedShoppingCard
-             key={item.id}
-             item={item}
-             currencySymbol={getToCurrencySymbol()}
+               {/* Vertical Swipe Actions - Edit and Delete */}
+               {swipedItemId === item.id && (
+                 <div className="absolute right-0 top-0 h-full flex flex-col items-center justify-center gap-2 pr-2 py-2">
+                   <Button
+                     variant="outline"
+                     size="icon"
+                     onClick={() => startEditing(item)}
+                     className="bg-blue-500 text-white hover:bg-blue-600 shadow-lg h-10 w-10 rounded-full"
+                   >
+                     <Edit3 className="w-4 h-4" />
+                   </Button>
+                   <Button
+                     variant="outline"
+                     size="icon"
+                     onClick={() => handleDelete(item.id)}
+                     className="bg-red-500 text-white hover:bg-red-600 shadow-lg h-10 w-10 rounded-full"
+                     disabled={isDeleting}
+                   >
+                     <Trash2 className="w-4 h-4" />
+                   </Button>
+                 </div>
+               )}
+             </div>
+           ))}
+         </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {sortedItems.map(item => (
+            <EnhancedShoppingCard
+              key={item.id}
+              item={item}
+              currencySymbol={getToCurrencySymbol()}
               onToggleLike={(id) => toggleLike(id)}
               onTogglePurchased={(id) => togglePurchased(id)}
-              onCardClick={() => setShowInstagramView(true)}
+              onCardClick={() => {}}
               onShare={shareToInstagram}
-             isUpdating={isUpdating}
-           />
-         ))}
-       </div>
+              isUpdating={isUpdating}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Empty State */}
       {items.length === 0 && !isLoading && (
